@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BTB3 Schedule Checker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.0/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f4f6f9;--card:#fff;--ink:#14202e;--mut:#5b6878;--line:#dde3eb;--acc:#0e7c7b;--accink:#fff;--rail:#10233f;--railink:#c9d4e6;
+--yel:#fff1a6;--org:#ffe0bd;--red:#fbd3d3;--grn:#d8f0df;--ytxt:#14202e;--kok:#2e9e5b;--kyel:#d4a300;--korg:#e07b1f;--kred:#d33}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--rail);color:var(--railink);padding:22px 14px;position:sticky;top:0;align-self:start;height:100vh;display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;gap:11px;align-items:center;padding:0 8px}
+.mark{width:36px;height:36px;border-radius:9px;background:var(--acc);color:var(--accink);display:grid;place-items:center;font-weight:700;font-size:14px;letter-spacing:-.02em}
+.brand b{display:block;color:#fff;font-size:15px;font-weight:600;line-height:1.2}.brand small{font-size:12px;color:var(--railink)}
+.tabs{display:flex;flex-direction:column;gap:2px}
+.tabs button{all:unset;box-sizing:border-box;cursor:pointer;padding:10px 12px;border-radius:7px;font-size:14px;font-weight:500;color:var(--railink);border-left:3px solid transparent;transition:background .15s}
+.tabs button:hover{background:rgba(255,255,255,.07);color:#fff}
+.tabs button:focus-visible{outline:2px solid #fff}
+.tabs button.on{background:rgba(255,255,255,.11);color:#fff;border-left-color:var(--acc)}
+.rail-note{margin:auto 8px 0;font-size:12px;line-height:1.45;color:var(--railink);opacity:.8}
+main{padding:28px 32px 64px;max-width:1180px;width:100%}
+.wb{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:20px;transition:border-color .15s}
+.wb.drag{border-color:var(--acc);border-style:dashed}
+.wb b{display:block;font-size:14px}.wb #msg{font-size:13px}
+.wb>div{flex:1 1 280px;min-width:0}
+input[type=file]{font:inherit;font-size:13px;color:var(--mut);max-width:100%}
+input[type=file]::file-selector-button{background:var(--acc);color:var(--accink);border:0;border-radius:6px;padding:8px 14px;font:inherit;font-weight:600;margin-right:12px;cursor:pointer}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:24px 26px}
+h2{font-size:22px;font-weight:650;letter-spacing:-.015em;margin:0 0 4px;line-height:1.25}
+h3{margin:26px 0 10px;font-size:15px;font-weight:600}
+.lede{color:var(--mut);margin:0 0 18px;max-width:72ch}.mut{color:var(--mut)}.hide{display:none!important}
+.stats{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:14px 0 18px}
+.stats:empty{display:none}
+.stat{position:relative;padding:11px 22px;min-width:116px;font-size:12.5px;color:var(--mut);border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:3px;border-radius:0 2px 2px 0;background:var(--k,transparent)}
+.stat b{display:block;font-size:22px;font-weight:600;line-height:1.2;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat.ok{--k:var(--kok)}.stat.yel{--k:var(--kyel)}.stat.org{--k:var(--korg)}.stat.red{--k:var(--kred)}
+.blk{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap}.blk label{display:flex;gap:6px;align-items:center}.blk input{accent-color:var(--acc)}
+.pill{display:inline-flex;align-items:flex-start;gap:7px;font-weight:600;font-size:12.5px;line-height:1.35}
+.pill::before{content:"";flex:none;width:8px;height:8px;margin-top:5px;border-radius:50%;background:var(--k,var(--mut))}
+.pill.ok{--k:var(--kok)}.pill.yel{--k:var(--kyel)}.pill.org{--k:var(--korg)}.pill.red{--k:var(--kred)}
+th.n,td.n{text-align:right}
+@media print{
+ *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .rail,.wb,.bar,#blkBar,.okn,.stats,summary{display:none!important}
+ .shell{display:block}main{padding:0;max-width:none}.panel{border:0;padding:0}body{background:#fff}
+ h2{font-size:18px}.lede{display:none}
+ #scGrids .wrap,#tcOut .wrap{break-inside:avoid;margin-bottom:10px}
+ #scGrids .wrap{break-after:page}
+}
+@property --p{syntax:'<number>';inherits:false;initial-value:0}
+::selection{background:color-mix(in srgb,var(--acc) 28%,transparent)}
+.tabs button{display:flex;align-items:center;gap:10px}
+.tabs button svg{flex:none;opacity:.85}
+.wb{position:sticky;top:10px;z-index:5;background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 6px 20px -12px rgba(16,35,63,.35)}
+.panel{border-radius:12px;box-shadow:0 1px 2px rgba(16,35,63,.05),0 12px 28px -18px rgba(16,35,63,.22);animation:rise .28s ease-out}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+.ov{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:20px}
+.ov:empty{display:none}
+.tile{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.tile:hover{transform:translateY(-2px);border-color:var(--k);box-shadow:0 10px 24px -16px rgba(16,35,63,.4)}
+.tile:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.tile b{display:block;font-size:15px;font-weight:600}.tile small{display:block;font-size:12.5px;color:var(--mut);margin-top:2px}
+.ring{--p:0;flex:none;position:relative;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--k) calc(var(--p)*1%),var(--line) 0);animation:fill .9s ease-out}
+@keyframes fill{from{--p:0}}
+.ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--card)}
+.ring span{position:relative;font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}
+.tile.ok{--k:var(--kok)}.tile.yel{--k:var(--kyel)}.tile.org{--k:var(--korg)}.tile.red{--k:var(--kred)}
+table:not(.xl) td{transition:box-shadow .12s}
+table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
+.wrap{scrollbar-width:thin}
+@media(prefers-reduced-motion:reduce){.panel,.ring{animation:none}.tile{transition:none}}
+@media print{.ov{display:none!important}}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:12px;padding:1px 9px;margin:2px 5px 2px 0;font-size:12px;white-space:nowrap}
+.auth{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
+.authbox{width:min(390px,100%);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:28px;display:grid;gap:12px}
+.authbox h2{margin:6px 0 0}.authbox .lede{margin:0}
+.authbox label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
+.authbox input{height:38px;font:inherit;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.authbtn{display:flex;gap:10px;margin-top:4px}.authbtn .btn{flex:1}
+.btn{height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--accink);font:inherit;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--acc)}
+.who{margin:auto 8px 0;display:grid;gap:2px;font-size:13px;color:#fff}.who small{color:var(--railink);margin-bottom:8px}
+.who .btn{height:32px;border-color:rgba(255,255,255,.4);color:#fff}
+.rail-note{margin-top:14px!important}
+.okn{margin:0 0 18px;padding:11px 16px;border:1px solid var(--line);border-left:4px solid var(--kok);border-radius:8px;font-size:13.5px}
+.bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:6px 0 4px;font-size:13.5px;color:var(--mut)}
+.bar label{display:flex;gap:8px;align-items:center}
+select,input[type=text]{font:inherit;font-size:13.5px;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+select:hover,input[type=text]:hover{border-color:var(--mut)}
+.wrap{overflow-x:auto}
+#tsOut:has(table),#scOut:has(table){border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12.5px;white-space:nowrap}
+tbody tr:last-child td,table>tr:last-child td{border-bottom:0}
+tr.yel td{background:var(--yel);color:var(--ytxt)}tr.org td{background:var(--org);color:var(--ytxt)}tr.red td{background:var(--red);color:var(--ytxt)}tr.grn td{background:var(--grn);color:var(--ytxt)}
+details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
+.xl{border-collapse:collapse;width:100%;min-width:640px;margin:0 0 6px;font-size:12.5px;table-layout:fixed}
+.xl td,.xl th{border:1px solid var(--mut);padding:5px 7px;text-align:center;vertical-align:middle;height:46px;background:var(--card);color:var(--ink)}
+.xl th{background:#333;color:#fff;font-weight:700;height:28px;font-size:12.5px}
+.xt th{background:#404040}
+.xl td.tm{font-weight:700;width:12%}
+.xl td.ttl{font-weight:700;font-size:14px;white-space:pre-line;height:auto}
+.xl td.lt{font-weight:700;height:26px}.xl td.sess{text-align:left;font-weight:700;height:26px}.xl td.ft{border:0;text-align:right;height:auto;font-size:12px;padding:1px 7px;background:transparent}
+.xl td.x{background-image:linear-gradient(to top right,transparent calc(50% - .75px),var(--mut) calc(50% - .75px),var(--mut) calc(50% + .75px),transparent calc(50% + .75px)),linear-gradient(to bottom right,transparent calc(50% - .75px),var(--mut) calc(50% - .75px),var(--mut) calc(50% + .75px),transparent calc(50% + .75px))}
+.xl td.yel{background-color:var(--yel);color:var(--ytxt)}.xl td.org{background-color:var(--org);color:var(--ytxt)}.xl td.red{background-color:var(--red);color:var(--ytxt);outline:2px solid #d33;outline-offset:-2px}
+.xl td.cfl{background:var(--red);color:var(--ytxt);text-align:left;font-weight:600;height:auto;padding:8px 10px}
+.xl td small{display:block;font-weight:700;color:#d33;margin-top:2px}
+@media(max-width:860px){
+ .shell{grid-template-columns:1fr}
+ .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:14px 16px}
+ .tabs{flex-direction:row;overflow-x:auto;gap:4px;flex:1 1 100%}
+ .tabs button{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;border-radius:7px 7px 0 0}
+ .tabs button.on{border-bottom-color:var(--acc)}
+ .rail-note{display:none}
+ main{padding:18px 14px 48px}.panel{padding:18px 14px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body><div id="auth" class="auth"><div class="authbox"><span class="mark">B3</span><h2>Schedule Checker</h2><p class="lede" id="authMsg">Sign in to continue. Ask your administrator if you need an account.</p>
+<label>Username<input id="aMail" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+<label>Password<input id="aPass" type="password" autocomplete="current-password"></label>
+<div class="authbtn"><button id="aIn" class="btn">Sign in</button></div></div></div>
+<div class="shell">
+<aside class="rail">
+<div class="brand"><span class="mark">B3</span><div><b>Schedule Checker</b><small id="sem">Upload a workbook</small></div></div>
+<nav class="tabs" id="tabs"><button data-t="ts" class="on" aria-current="page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Timesheets</button><button data-t="tc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Teacher Schedules</button><button data-t="sc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedules</button><button data-t="hr"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Homeroom</button></nav>
+<div class="who" id="who"></div>
+<p class="rail-note">Workbooks are stored privately in your school's Supabase project. Only signed-in staff can open them.</p>
+</aside>
+<main>
+<div class="wb" id="wb"><div><b>Workbook</b><span id="msg" class="mut">No file loaded. Drop an .xlsx here or choose one.</span></div><input type="file" id="f" accept=".xlsx,.xlsm"><button id="expBtn" class="btn ghost" title="Download all results as an Excel file">Download report (Excel)</button></div>
+<div class="wb hide" id="semBar"><b>Semester</b><select id="semSel"></select><b>Campus</b><select id="campSel"><option>BTB1</option><option>BTB2</option><option>BTB3</option></select><button id="semNew" class="btn ghost hide">New semester</button><button id="saveUp" class="btn hide">Save this workbook to the semester</button></div>
+<div id="hist" style="margin:-8px 0 18px"></div>
+<div class="ov" id="ov"></div>
+<section id="ts" class="panel"><h2>Timesheets</h2>
+<p class="lede">Teacher period hours (TIMESHEET) vs. total hours in the teacher's schedule, matched by teacher name. Mismatches are highlighted yellow. Homeroom periods are not counted here; they are listed in the Homeroom tab.</p>
+<div class="bar"><label>Period hours from <select id="mode"><option value="declared">Teaching hours/week (2025-2026 column)</option><option value="counted">Periods counted in timesheet grid</option></select></label>
+<label><input type="checkbox" id="tsOnly"> Mismatches only</label></div>
+<div class="stats" id="tsStats"></div><div class="wrap" id="tsOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
+
+<section id="tc" class="panel hide"><h2>Teacher Schedules</h2>
+<p class="lede">Teacher schedules gathered and arranged by subject.</p>
+<div class="bar"><label>Subject <select id="subSel"></select></label><input type="text" id="tcQ" placeholder="Search teacher"></div>
+<div id="tcOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
+
+<section id="sc" class="panel hide"><h2>Schedules</h2>
+<p class="lede">Student class schedules (G7–G12) vs. teacher schedules. Matched on Teacher Name, Subject and Grade; day/time is used to flag slot differences. Also flags conflicts: a teacher in two classes at once, or a class with two teachers at once.</p>
+<div class="bar"><label>Grade <select id="scG"><option value="">All grades</option></select></label><label>Results list shows <select id="scF"><option value="issues">Issues only</option><option value="all">All periods</option></select></label><span id="blkBar" class="blk"></span></div>
+<div class="stats" id="scStats"></div><div id="scConf"></div><div id="scGrids"></div><h3>Check results</h3><div class="wrap" id="scOut"><p class="mut">Upload the semester workbook above to begin.</p></div>
+</section>
+<section id="hr" class="panel hide"><h2>Homeroom</h2>
+<p class="lede">Homeroom periods are taken out of the teacher schedules and matched with the homeroom class in the TIMESHEET. Each class should have one homeroom teacher. Homeroom periods overlap class lessons by design, and they are not counted in the Timesheet hours.</p>
+<div class="bar"><label>Class <select id="hrG"></select></label><label><input type="checkbox" id="hrOnly"> Issues only</label></div>
+<div class="stats" id="hrStats"></div><div class="wrap" id="hrOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
+</main></div>
+<script>
+const $=id=>document.getElementById(id);
+const clean=s=>String(s==null?'':s).replace(/[\u200b-\u200d\ufeff]/g,'').replace(/\r/g,'').trim();
+const esc=s=>clean(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nName=s=>clean(s).toUpperCase().replace(/^(MR|MS|MRS|MISS|DR)\.?\s+/,'').replace(/\s+/g,' ');
+const nGrade=s=>clean(s).toUpperCase().replace(/^GRADE\s*/,'').replace(/\s+/g,' ');
+const nSub=s=>clean(s).toLowerCase().replace(/\s+/g,' ');
+const DAYS=['Mon','Tue','Wed','Thu','Fri'];
+let S=null;
+function grid(ws){ws['!ref']='A1:BZ400';return XLSX.utils.sheet_to_json(ws,{header:1,defval:null})}
+
+async function crossedCells(buf){
+ const z=await JSZip.loadAsync(buf);
+ const rd=async p=>{const f=z.file(p);return f?new DOMParser().parseFromString(await f.async('string'),'application/xml'):null};
+ const st=await rd('xl/styles.xml'),wbx=await rd('xl/workbook.xml'),rel=await rd('xl/_rels/workbook.xml.rels'),th=await rd('xl/theme/theme1.xml');
+ const on=v=>v==='1'||v==='true';
+ const pal=['lt1','dk1','lt2','dk2','accent1','accent2','accent3','accent4','accent5','accent6','hlink','folHlink'].map(n=>{
+  const e=th&&th.getElementsByTagName('a:'+n)[0],c=e&&e.getElementsByTagName('*')[0];return c?(c.getAttribute('lastClr')||c.getAttribute('val')):'000000'});
+ const tint=(hex,t)=>{const v=[0,2,4].map(k=>parseInt(hex.slice(k,k+2),16)/255),mx=Math.max(...v),mn=Math.min(...v),d=mx-mn;
+  let h=0,s=0,l=(mx+mn)/2;if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===v[0]?(v[1]-v[2])/d+(v[1]<v[2]?6:0):mx===v[1]?(v[2]-v[0])/d+2:(v[0]-v[1])/d+4;h/=6}
+  l=t<0?l*(1+t):l*(1-t)+t;const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;
+  const f=x=>{x=x<0?x+1:x>1?x-1:x;return x<1/6?p+(q-p)*6*x:x<.5?q:x<2/3?p+(q-p)*(2/3-x)*6:p};
+  const o=s?[f(h+1/3),f(h),f(h-1/3)]:[l,l,l];return'#'+o.map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('')};
+ const bord=[...st.getElementsByTagName('borders')[0].children].map(b=>{const d=b.getElementsByTagName('diagonal')[0];
+  return !!(d&&d.getAttribute('style')&&(on(b.getAttribute('diagonalUp'))||on(b.getAttribute('diagonalDown'))))});
+ const fills=[...st.getElementsByTagName('fills')[0].children].map(f=>{const pf=f.getElementsByTagName('patternFill')[0];
+  if(!pf||pf.getAttribute('patternType')!=='solid')return null;const fg=pf.getElementsByTagName('fgColor')[0];if(!fg)return null;
+  if(fg.getAttribute('rgb'))return'#'+fg.getAttribute('rgb').slice(-6);
+  if(fg.getAttribute('theme')!==null&&fg.getAttribute('theme')!=='')return tint(pal[+fg.getAttribute('theme')]||'000000',+fg.getAttribute('tint')||0);return null});
+ const fonts=[...st.getElementsByTagName('fonts')[0].children].map(f=>{const b=f.getElementsByTagName('b')[0];return !!b&&b.getAttribute('val')!=='0'});
+ const xf=[...st.getElementsByTagName('cellXfs')[0].children].map(x=>({x:bord[+x.getAttribute('borderId')||0],bg:fills[+x.getAttribute('fillId')||0],b:fonts[+x.getAttribute('fontId')||0]}));
+ const targets={};[...rel.getElementsByTagName('Relationship')].forEach(r=>targets[r.getAttribute('Id')]=r.getAttribute('Target'));
+ const out={};
+ for(const sh of wbx.getElementsByTagName('sheet')){
+  const t=targets[sh.getAttribute('r:id')];if(!t)continue;
+  const doc=await rd(t.startsWith('/')?t.slice(1):'xl/'+t);if(!doc)continue;
+  const m=new Map();[...doc.getElementsByTagName('c')].forEach(c=>{const i=xf[+c.getAttribute('s')||0];if(i&&(i.x||i.bg||i.b))m.set(c.getAttribute('r'),i)});
+  out[sh.getAttribute('name')]=m}
+ return out}
+
+const code=g=>nGrade(g).replace(/\s*\(.*\)/,'').trim();
+function mergeInfo(ws){const cs={},rs={},cov=new Set();(ws['!merges']||[]).forEach(m=>{const k=m.s.r+'|'+m.s.c;cs[k]=m.e.c-m.s.c+1;rs[k]=m.e.r-m.s.r+1;
+ for(let r=m.s.r;r<=m.e.r;r++)for(let c=m.s.c;c<=m.e.c;c++)if(r!==m.s.r||c!==m.s.c)cov.add(r+'|'+c)});return{cs,rs,cov}}
+function classify(wb){const stud=[],teach=[];
+ wb.SheetNames.forEach(n=>{if(n==='TIMESHEET'||/change log/i.test(n))return;let a=false,t=false;
+  grid(wb.Sheets[n]).forEach(r=>{const b=clean(r[1]);if(/Grade\s+.+\/\s*Room/i.test(b))a=true;if(/Instructor:/i.test(b))t=true});
+  if(t)teach.push(n);else if(a)stud.push(n)});
+ return{stud,teach}}
+function parseTeachers(wb,X,list){const out=[];
+ list.forEach(sn=>{let cur=null,title='',sy='';const xs=X[sn]||new Map(),MI=mergeInfo(wb.Sheets[sn]),mg=MI.cs;
+  const inf=(ri,c)=>xs.get(String.fromCharCode(65+c)+(ri+1))||{};
+  grid(wb.Sheets[sn]).forEach((r,ri)=>{const b=clean(r[1]);
+   if(/Teacher.?s Schedule/i.test(b)){title=b;sy='';cur=null;return}
+   if(!cur&&/^(School|Academic) Year/i.test(b)){sy=b;return}
+   const m=b.match(/Instructor:\s*(.+?)\s*\(Tel/i)||b.match(/Instructor:\s*(.+)$/i);
+   if(m){cur={subject:sn.replace(/^\d+-/,''),name:nName(m[1]),display:clean(m[1]).replace(/^(Mr|Ms|Mrs)\.?\s+/i,''),entries:[],crossed:new Set(),
+    title,sy,instr:b.replace(/\s+/g,' '),campus:clean(r[6]),campusBg:inf(ri,6).bg,rows:[]};out.push(cur);return}
+   if(!cur)return;
+   if(/^Lunch/i.test(b)){cur.rows.push({t:'lunch',label:b});return}
+   if(b==='Time'){cur.rows.push({t:'head'});return}
+   if(/^\d{1,2}:\d{2}/.test(b)){const cells=[];let brk=false;
+    for(let d=0;d<5;d++){const v=clean(r[2+d]),i=inf(ri,2+d),K=ri+'|'+(2+d);
+     if(i.x)cur.crossed.add(DAYS[d]+'|'+b);
+     cells.push({v,x:!!i.x,bg:i.bg,cs:mg[K]>1?mg[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K)});
+     if(d===0&&/^break/i.test(v))brk=true;
+     if(v&&!/^break/i.test(v)){const L=v.split('\n').map(clean).filter(Boolean);cur.entries.push({day:DAYS[d],time:b,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
+    cur.rows.push({t:'row',time:b,tbg:inf(ri,1).bg,cells,brk});return}
+   if(cur.rows.length){const items=[],tot=/^Total Hours/i.test(b);let c=1;
+    while(c<=6){const v=tot&&c===2?'__TOT__':clean(r[c]),i=inf(ri,c);let span=mg[ri+'|'+c]||1;
+     if(span===1&&v&&v!=='__TOT__')while(c+span<=6&&!clean(r[c+span])&&!mg[ri+'|'+(c+span)]&&!(tot&&c+span===2))span++;
+     items.push({v,span,bg:i.bg,bold:!!i.b,al:c>=5?'center':'left'});c+=span}
+    if(items.some(x=>(x.v&&x.v!=='__TOT__')||x.bg))cur.rows.push({t:'foot',items})}
+  })});return out}
+
+function parseTimesheet(wb){const rows=grid(wb.Sheets['TIMESHEET']),out=[];let last=null;
+ let hi=rows.findIndex(r=>/^name$/i.test(clean(r[3])));if(hi<0)hi=10;
+ const H=rows[hi]||[],find=re=>H.findIndex(v=>re.test(clean(v)));
+ let hc=find(/teaching\s*hours/i);if(hc<0)hc=8;
+ const homeC=find(/home/i),phoneC=find(/phone/i),statC=find(/status/i),subC=find(/^subject$/i);
+ const body=[];for(let i=hi+1;i<rows.length;i++){const r=rows[i];if(/resi|registrar/i.test(clean(r[1])))break;body.push([i,r])}
+ const num=[0,0];body.forEach(([i,r])=>{for(let k=0;k<2;k++)if(Number(r[hc+k])>0)num[k]++});
+ const dc=num[1]>0?hc+1:hc;let gridTotal=0;
+ body.forEach(([i,r])=>{const name=clean(r[3]),cnt=r.slice(15,55).filter(v=>clean(v)).length;gridTotal+=cnt;
+  if(name&&!/^name$/i.test(name)){last={row:i+1,id:clean(r[2]),name:nName(name),display:name,subject:clean(r[subC>=0?subC:6]),declared:Number(r[dc])||0,counted:cnt,
+   hr:homeC>=0?clean(r[homeC]):'',phone:phoneC>=0?clean(r[phoneC]):'',status:statC>=0?clean(r[statC]):''};out.push(last)}
+  else if(last&&cnt>0)last.counted+=cnt});
+ out.hasGrid=out.length>0&&gridTotal/out.length>=3;return out}
+
+function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={};
+ list.forEach(sn=>{let grade='',meta=null,title='';const xs=X[sn]||new Map(),MI=mergeInfo(wb.Sheets[sn]);
+  grid(wb.Sheets[sn]).forEach((r,ri)=>{const b=clean(r[1]);
+   if(/Class Schedule/i.test(b)){title=b;meta=null;grade='';return}
+   const g=b.match(/Grade\s+(.+?)\s*\/\s*Room/i);
+   if(g){grade=g[1].trim();meta=layout[grade]={title,gradeLine:b.replace(/\s+/g,' '),session:'',campus:'',rows:[],notes:[]};return}
+   if(!meta)return;
+   if(!meta.rows.length&&b!=='Time'){let hit=false;
+    if(/Session/i.test(b)){meta.session=b.replace(/\s+/g,' ');hit=true}
+    if(/Campus/i.test(clean(r[6]))){meta.campus=clean(r[6]);hit=true}
+    if(hit)return}
+   if(/^Lunch/i.test(b)){meta.rows.push({t:'lunch',label:b});return}
+   if(b==='Time'){meta.rows.push({t:'head'});return}
+   if(/^\d{1,2}:\d{2}/.test(b)){const cells=[];let brk=false;
+    for(let d=0;d<5;d++){const v=clean(r[2+d]),K=ri+'|'+(2+d),x=!!(xs.get(String.fromCharCode(67+d)+(ri+1))||{}).x;
+     if(x)cross.add(grade+'|'+DAYS[d]+'|'+b);
+     cells.push({v,x,cs:MI.cs[K]>1?MI.cs[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K)});
+     if(d===0&&/^break/i.test(v))brk=true;
+     if(v&&!/^break/i.test(v)){const L=v.split('\n').map(clean).filter(Boolean);
+      out.push({grade,day:DAYS[d],time:b,subject:L[0],teacher:L.slice(1).join(' '),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
+    meta.rows.push({t:'row',time:b,cells,brk});return}
+   if(meta.rows.length){const f=r.slice(1,7).map(clean).find(v=>v);if(f)meta.notes.push(f)}
+  })});return{out,cross,layout}}
+
+const wb_=$('wb');['dragover','dragenter'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.add('drag')}));
+['dragleave','drop'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.remove('drag')}));
+wb_.addEventListener('drop',e=>{const fl=e.dataTransfer.files;if(fl&&fl.length){$('f').files=fl;$('f').dispatchEvent(new Event('change'))}});
+async function loadBuf(buf,name){$('msg').textContent='Reading…';
+ try{const wb=XLSX.read(buf,{type:'array'});
+  if(!wb.Sheets['TIMESHEET'])throw new Error('No TIMESHEET sheet found');
+  let X={};try{X=await crossedCells(buf)}catch(e){console.warn('crossed cells not read',e)}
+  const cl=classify(wb),blocks=parseTeachers(wb,X,cl.teach),sp=parseStudents(wb,X,cl.stud);
+  const cm=Object.values(sp.layout).map(L=>L.campus.match(/BTB\d+/i)).find(Boolean)||(name||'').match(/BTB\d+/i)||clean(((grid(wb.Sheets['TIMESHEET'])[9])||[])[1]).match(/BTB\d+/i);
+  S={ts:parseTimesheet(wb),blocks,stud:sp.out,studX:sp.cross,layout:sp.layout,campus:cm?cm[0].toUpperCase():''};
+  if($('mode').options&&$('mode').options[1])$('mode').options[1].disabled=!S.ts.hasGrid;
+  if(!S.ts.hasGrid)$('mode').value='declared';
+  $('scG').innerHTML='<option value="">All grades</option>'+Object.keys(sp.layout).map(g=>`<option>${esc(g)}</option>`).join('');
+  $('msg').textContent=`${name}: ${S.ts.length} timesheet rows, ${blocks.length} teacher schedules, ${S.stud.length} student periods.`;
+  const subs=[...new Set(blocks.map(b=>b.subject))];
+  $('subSel').innerHTML='<option value="">All subjects</option>'+subs.map(s=>`<option>${esc(s)}</option>`).join('');
+  const T0=[...Object.values(sp.layout).map(L=>L.title),...blocks.map(b=>b.title)].join(' '),sm=T0.match(/Semester\s*(\d+)/i),
+   ay=T0.match(/Academic Year\s*(\d{4})\s*-\s*(\d{4})/i)||(blocks[0]&&blocks[0].sy.match(/(\d{4})\s*-\s*(\d{4})/));
+  $('sem').textContent=[S.campus,sm?'Semester '+sm[1]:'',ay?ay[1]+'\u2013'+ay[2]:''].filter(Boolean).join(', ')||'Workbook loaded';
+  const yrs={};Object.entries(sp.layout).forEach(([g,L])=>{const m=L.title.match(/(\d{4})\s*-\s*(\d{4})/);if(m){const k=m[1]+'\u2013'+m[2];(yrs[k]=yrs[k]||[]).push(g)}});
+  const ys=Object.entries(yrs).sort((a,b)=>b[1].length-a[1].length);
+  if(ys.length>1)$('msg').textContent+=' Check: '+ys.slice(1).map(([k,v])=>`class ${v.join(', ')} says ${k}`).join('; ')+' in its title.';
+  if(S.campus&&CAMPUSES.includes(S.campus)&&$('campSel').value!==S.campus){$('campSel').value=S.campus;if(CUR)loadHist(true)}
+  const allT=[...new Set(Object.values(sp.layout).flatMap(L=>L.rows.filter(r=>r.t==='row'&&!r.brk).map(r=>r.time)))];
+  S.blocked=allT.filter(t=>/^4:00.*PM/i.test(t));
+  $('blkBar').innerHTML='<span>Blocked sessions (never suggested for fixes):</span>'+allT.map(t=>`<label><input type="checkbox" data-t="${esc(t)}"${S.blocked.includes(t)?' checked':''}>${esc(t)}</label>`).join('')+'<span style="flex:1 1 100%"></span><label><input type="checkbox" id="lowChk" checked>Grade 1\u20133 classes: never suggest 11:00 - 11:50 AM</label>';
+  S.noLow=true;
+  renderTS();renderSC();renderTC();renderHR();
+ }catch(err){$('msg').textContent='Could not read file: '+err.message}}
+document.getElementById('f').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();LAST={buf,name:f.name};loadBuf(buf,f.name)});
+
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('#tabs button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-current',x===b?'page':'false')});
+ ['ts','tc','sc','hr'].forEach(id=>$(id).classList.toggle('hide',id!==b.dataset.t))});
+['mode','tsOnly'].forEach(id=>$(id).onchange=()=>S&&renderTS());
+$('subSel').onchange=$('tcQ').oninput=()=>S&&renderTC();$('scF').onchange=$('scG').onchange=()=>S&&renderSC();
+$('hrG').onchange=$('hrOnly').onchange=()=>S&&renderHR();
+$('blkBar').addEventListener('change',()=>{if(!S)return;S.blocked=[...$('blkBar').querySelectorAll('input[data-t]:checked')].map(x=>x.dataset.t);S.noLow=!!($('lowChk')&&$('lowChk').checked);renderSC()});
+const pill=(c,t)=>`<span class="pill ${{grn:'ok',yel:'yel',org:'org',red:'red'}[c]||''}">${esc(t)}</span>`;
+const KIND={Match:'ok',Mismatch:'yel','Slot differs':'org','No schedule':'org','Teacher busy':'red','Teacher-only':'red',Conflicts:'red',OK:'ok',Classes:'','Needs attention':'yel','No homeroom':'red'};
+const stat=(l,v)=>`<div class="stat ${KIND[l]||''}"><b>${v}</b>${l}</div>`;
+
+function renderHR(){
+ const code=g=>nGrade(g).replace(/\s*\(.*\)/,'').trim();
+ const ck=c=>{const m=c.match(/^(\d+)(.*)$/);return m?m[1].padStart(3,'0')+m[2]:'999'+c};
+ const labels={};Object.keys(S.layout).forEach(g=>labels[code(g)]=g);
+ const tsBy={};S.ts.forEach(t=>{if(!tsBy[t.name])tsBy[t.name]=t});
+ const recs={};
+ S.blocks.forEach(b=>b.entries.forEach(e=>{if(!/^homeroom/i.test(clean(e.subject)))return;const c=code(e.grade),k=b.name+'|'+c;
+  (recs[k]=recs[k]||{n:b.name,disp:b.display,c,sub:b.subject,slots:[]}).slots.push(e)}));
+ const byC={};Object.values(recs).forEach(r=>(byC[r.c]=byC[r.c]||[]).push(r));
+ const used=S.blocks.some(b=>b.entries.some(e=>/^homeroom/i.test(clean(e.subject))))||S.ts.some(t=>t.hr);
+ const hb=document.querySelector('#tabs [data-t="hr"]');if(hb)hb.style.opacity=used?'':'.55';
+ if(!used){S.kpi=S.kpi||{};S.kpi.hr=null;S.rep=S.rep||{};S.rep.hr=null;$('hrStats').innerHTML='';$('hrG').innerHTML='';
+  $('hrOut').innerHTML='<p class="okn"><b>No homeroom at this campus.</b> This workbook has no homeroom periods and no homeroom classes in the Timesheet, so there is nothing to check here.</p>';renderOV();return}
+ const SEV={ok:0,org:1,yel:2,red:3};
+ const rows=[];
+ Object.values(recs).forEach(r=>{const t=tsBy[r.n],iss=[];let sev='ok';
+  const up=(c,m)=>{iss.push(m);if(SEV[c]>SEV[sev])sev=c};
+  if(!t||!t.hr)up('org','Not listed in the Timesheet');else if(code(t.hr)!==r.c)up('yel',`Timesheet says ${t.hr}`);
+  if(byC[r.c].length>1)up('yel','Class has two homeroom teachers');
+  rows.push({c:r.c,teacher:r.disp,sub:r.sub,phone:t?t.phone:'',ts:t?t.hr:'',slots:r.slots,sev,st:iss.length?iss.join('; '):'OK'})});
+ Object.keys(labels).forEach(c=>{if(!byC[c])rows.push({c,teacher:'No homeroom teacher',sub:'',phone:'',ts:'',slots:[],sev:'red',st:'No homeroom teacher found in the teacher schedules'})});
+ S.ts.forEach(t=>{if(t.hr&&!recs[t.name+'|'+code(t.hr)])rows.push({c:code(t.hr),teacher:t.display,sub:t.subject,phone:t.phone,ts:t.hr,slots:[],sev:'org',st:'Timesheet lists this class, but the teacher schedule has no homeroom periods'})});
+ rows.sort((a,b)=>ck(a.c)<ck(b.c)?-1:ck(a.c)>ck(b.c)?1:0);
+ S.rep=S.rep||{};S.rep.hr=rows.map(r=>({cls:labels[r.c]||r.c,teacher:r.teacher,subject:r.sub,phone:r.phone,tsClass:r.ts,periods:r.slots.map(e=>e.day+' '+e.time).join(', '),status:r.st}));
+ const cls=[...new Set(rows.map(r=>r.c))],cur=$('hrG').value;
+ $('hrG').innerHTML='<option value="">All classes</option>'+cls.map(c=>`<option>${esc(c)}</option>`).join('');$('hrG').value=cls.includes(cur)?cur:'';
+ const ok=rows.filter(r=>r.sev==='ok').length,no=rows.filter(r=>r.teacher==='No homeroom teacher').length;
+ S.kpi=S.kpi||{};S.kpi.hr={ok,total:rows.length};
+ $('hrStats').innerHTML=stat('Classes',cls.length)+stat('OK',ok)+stat('Needs attention',rows.length-ok-no)+stat('No homeroom',no);
+ const g=$('hrG').value,list=rows.filter(r=>(!g||r.c===g)&&(!$('hrOnly').checked||r.sev!=='ok'));
+ const SC={ok:'grn',org:'org',yel:'yel',red:'red'};
+ $('hrOut').innerHTML=list.length?`<table><tr><th>Class</th><th>Homeroom teacher</th><th>Subject</th><th>Phone</th><th>Timesheet class</th><th>Homeroom periods</th><th>Status</th></tr>`+
+  list.map(r=>`<tr class="${r.sev==='ok'?'':r.sev}"><td><b>${esc(labels[r.c]||r.c)}</b></td><td>${esc(r.teacher)}</td><td>${esc(r.sub)}</td><td>${esc(r.phone)}</td><td>${esc(r.ts)}</td><td>${r.slots.map(e=>`<span class="chip">${e.day} ${esc(e.time)}</span>`).join('')}</td><td>${pill(SC[r.sev],r.st)}</td></tr>`).join('')+'</table>'
+  :'<p class="mut">No homeroom issues found.</p>';
+ renderOV()}
+
+function renderOV(){const k=S&&S.kpi;if(!k||!k.ts||!k.sc)return;
+ const col=p=>p>=90?'ok':p>=60?'yel':'org',pc=(a,b)=>b?Math.round(a/b*100):0;
+ const a=pc(k.ts.ok,k.ts.total),b=pc(k.sc.m,k.sc.total),c=k.sc.cf;
+ const tile=(go,cls,p,txt,t,sub)=>`<button class="tile ${cls}" data-go="${go}"><span class="ring" style="--p:${p}"><span>${txt}</span></span><span><b>${t}</b><small>${sub}</small></span></button>`;
+ $('ov').innerHTML=tile('ts',col(a),a,a+'%','Timesheets',`${k.ts.ok} of ${k.ts.total} teachers match`)
+  +tile('sc',col(b),b,b+'%','Class schedules',`${k.sc.m} of ${k.sc.total} periods match`)
+  +tile('sc',c?'red':'ok',100,c,'Conflicts',c?`${c} to fix, see Schedules`:'No conflicts found')
+  +(k.hr?(()=>{const h=pc(k.hr.ok,k.hr.total);return tile('hr',col(h),h,h+'%','Homeroom',`${k.hr.ok} of ${k.hr.total} classes OK`)})():'')}
+$('ov').addEventListener('click',e=>{const t=e.target.closest('.tile');if(t){const b=document.querySelector('#tabs [data-t="'+t.dataset.go+'"]');b&&b.click()}});
+
+function renderTS(){
+ const tot={},hm={},isH=e=>/^homeroom/i.test(clean(e.subject));S.blocks.forEach(b=>{tot[b.name]=(tot[b.name]||0)+b.entries.filter(e=>!isH(e)).length;hm[b.name]=(hm[b.name]||0)+b.entries.filter(isH).length});
+ const mode=$('mode').value;let ok=0,bad=0,none=0;
+ const rows=S.ts.map(t=>{const has=t.name in tot,p=t[mode],s=has?tot[t.name]:null;
+  let cls='grn',st='Match';
+  if(!has){cls='org';st='No teacher schedule found';none++}
+  else if(p!==s){cls='yel';st='Mismatch';bad++}else ok++;
+  return{t,p,s,cls,st}});
+ S.kpi=S.kpi||{};S.kpi.ts={ok,total:S.ts.length};
+ S.rep=S.rep||{};S.rep.ts=rows.map(({t,p,s,st})=>({id:t.id,name:t.display,subject:t.subject,declared:t.declared,counted:S.ts.hasGrid?t.counted:null,sched:s,home:s==null?null:(hm[t.name]||0),diff:s==null?null:p-s,status:st}));
+ $('tsStats').innerHTML=stat('Teachers',S.ts.length)+stat('Match',ok)+stat('Mismatch',bad)+stat('No schedule',none);
+ const list=rows.filter(r=>!$('tsOnly').checked||r.cls!=='grn');
+ $('tsOut').innerHTML=`<table><tr><th class="n">Row</th><th>ID</th><th>Name</th><th>Subject</th><th class="n">Teaching hrs/wk</th><th class="n">Periods in grid</th><th class="n">Schedule total</th><th class="n">Homeroom</th><th class="n">Diff</th><th>Status</th></tr>`+
+ list.map(({t,p,s,cls,st})=>`<tr class="${cls==='grn'?'':cls}"><td class="n">${t.row}</td><td>${esc(t.id)}</td><td><b>${esc(t.display)}</b></td><td>${esc(t.subject)}</td><td class="n">${t.declared}</td><td class="n">${S.ts.hasGrid?t.counted:'–'}</td><td class="n">${s==null?'–':s}</td><td class="n mut">${s==null?'–':(hm[t.name]||0)}</td><td class="n">${s==null?'–':(p-s>0?'+':'')+(p-s)}</td><td>${pill(cls,st)}</td></tr>`).join('')+'</table>';renderOV()}
+
+function xlTeacher(b){
+ const hdr='<tr><th>Time</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>';
+ const body=b.rows.map(r=>{
+  if(r.t==='head')return hdr;
+  if(r.t==='lunch')return`<tr><td class="lt" colspan="6">${esc(r.label)}</td></tr>`;
+  if(r.t==='foot')return'<tr>'+r.items.map(it=>`<td class="ft" colspan="${it.span}" style="text-align:${it.al};${it.bg?`background:${it.bg};color:#000;`:''}${it.bold?'font-weight:700':''}">${it.v==='__TOT__'?b.entries.length:esc(it.v)}</td>`).join('')+'</tr>';
+  return`<tr><td class="tm" style="${r.tbg?`background:${r.tbg};color:#000`:''}">${esc(r.time)}</td>`+r.cells.map((c,d)=>{if(c.skip)return'';const cm=S.tconf&&S.tconf.get(b.name+'|'+DAYS[d]+'|'+r.time);
+   return`<td class="${[c.x?'x':'',cm?'red':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
+ const cm=S.tconf?[...S.tconf.entries()].filter(([k])=>k.startsWith(b.name+'|')):[],ban=cm.length?`<tr><td class="cfl" colspan="6">Conflict (${cm.length} slot${cm.length>1?'s':''}): ${esc([...new Set(cm.map(x=>x[1]))].join(' '))}</td></tr>`:'';
+ return`<div class="wrap" style="margin-bottom:18px"><table class="xl xt"><tr><td class="ttl" colspan="6">${esc(b.title)}</td></tr><tr><td class="lt" colspan="6">${esc(b.sy)}</td></tr><tr><td class="sess" colspan="5">${esc(b.instr)}</td><td class="sess" style="${b.campusBg?`background:${b.campusBg};color:#000`:''}">${esc(b.campus)}</td></tr>${ban}${body}</table></div>`}
+
+function renderTC(){const sub=$('subSel').value,q=$('tcQ').value.toLowerCase();let h='';
+ const subs=[...new Set(S.blocks.map(b=>b.subject))].filter(s=>!sub||s===sub);
+ subs.forEach(s=>{const bl=S.blocks.filter(b=>b.subject===s&&b.display.toLowerCase().includes(q));if(!bl.length)return;
+  h+=`<details open style="margin-top:14px"><summary style="font-size:16px;font-weight:600;color:var(--ink);margin-bottom:8px">${esc(s)} <span class="mut" style="font-weight:400">(${bl.length} teacher${bl.length>1?'s':''})</span></summary>${bl.map(xlTeacher).join('')}</details>`});
+ $('tcOut').innerHTML=h||'<p class="mut">No teachers found.</p>'}
+
+function renderSC(){
+ const LAB={};Object.keys(S.layout).forEach(g=>LAB[code(g)]=g);const labelOf=g=>LAB[code(g)]||clean(g).replace(/^Grade\s*/i,'');
+ const own=(S.campus||'').toUpperCase();
+ const T=[];S.blocks.forEach(b=>b.entries.forEach(e=>{const g=code(e.grade);
+  if(LAB[g]&&!/^homeroom/i.test(clean(e.subject))&&(!e.campus||!own||clean(e.campus).toUpperCase().indexOf(own)>=0))T.push({n:b.name,s:nSub(e.subject),g,day:e.day,time:e.time,disp:b.display,sub:e.subject,gr:e.grade,ref:e.ref})}));
+ const k3=e=>e.n+'|'+e.s+'|'+e.g,k5=e=>k3(e)+'|'+e.day+'|'+e.time;
+ const T3=new Set(T.map(k3)),T5=new Set(T.map(k5)),names=new Set(S.blocks.map(b=>b.name));
+ const St=S.stud.map(x=>({n:nName(x.teacher),s:nSub(x.subject),g:code(x.grade),day:x.day,time:x.time,raw:x}));
+ const S5=new Set(St.map(k5));
+ const C={};S.blocks.forEach(b=>{(C[b.name]=C[b.name]||new Set());b.crossed.forEach(k=>C[b.name].add(k))});
+ const busy=e=>C[e.n]&&C[e.n].has(e.day+'|'+e.time);
+ let m=0,sd=0,mm=0,to=0,bz=0;const rows=[],CS={};
+ St.forEach(e=>{const r=e.raw;let cls='grn',st='Match';
+  if(busy(e)){cls='red';st='Teacher is crossed (busy) at this time';bz++}
+  else if(T5.has(k5(e)))m++;
+  else if(T3.has(k3(e))){cls='org';st='Slot differs (teacher has this class at another time)';sd++}
+  else{cls='yel';st=names.has(e.n)?'Subject/Grade not in teacher schedule':'Teacher not found';mm++}
+  CS[r.grade+'|'+r.day+'|'+r.time]={cls,st,lab:cls==='red'?'Teacher busy':''};
+  rows.push({cls,g:r.grade,day:r.day,time:r.time,sub:r.subject,t:r.teacher,st})});
+ T.filter(e=>!S5.has(k5(e))).forEach(e=>{to++;rows.push({cls:'red',g:e.gr.replace(/^Grade\s*/i,''),day:e.day,time:e.time,sub:e.sub,t:e.disp,st:'In teacher schedule, missing from student schedule'})});
+ const grp=(a,f)=>{const m={};a.forEach(e=>(m[f(e)]=m[f(e)]||[]).push(e));return m};
+ const isLow=g=>/^[1-3](?!\d)/.test(nGrade(g));
+ const freeOf=(n,low)=>{const bl=S.blocks.filter(b=>b.name===n),used=new Set();
+  const times=[...new Set(bl.flatMap(b=>b.rows.filter(r=>r.t==='row'&&!r.brk).map(r=>r.time)))].filter(t=>!(S.blocked||[]).includes(t)&&!(S.noLow&&low&&/^11:00.*AM/i.test(t)));
+  bl.forEach(b=>{b.entries.forEach(e=>used.add(e.day+'|'+e.time));b.crossed.forEach(k=>used.add(k))});
+  const f=[];times.forEach(t=>DAYS.forEach(d=>{if(!used.has(d+'|'+t))f.push(d+' '+t)}));
+  return f.length?f.slice(0,5).join(', ')+(f.length>5?' and '+(f.length-5)+' more':''):'none free'};
+ const fixFor=(n,grades,who)=>{const ls=[...new Set(grades.map(isLow))];
+  if(ls.length===1)return`Move one class to a free slot for ${who}: ${freeOf(n,ls[0])}.`;
+  return grades.map(g=>`Moving Grade ${clean(g).replace(/^Grade\s*/i,'')}: ${freeOf(n,isLow(g))}.`).join(' ')};
+ const cf=[];
+ Object.values(grp(St,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{const gs=[...new Set(v.map(x=>x.raw.grade))];
+  if(gs.length>1){const t=v[0].raw.teacher;cf.push({type:'Teacher in two classes',day:v[0].raw.day,time:v[0].raw.time,who:t,
+   what:`${t} is scheduled in ${v.map(x=>'Grade '+x.raw.grade+' ('+x.raw.subject+')').join(' and ')} at the same time.`,
+   where:v.map(x=>x.raw.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.raw.grade),t),
+   cells:v.map(x=>x.raw.grade+'|'+x.day+'|'+x.time),tk:[v[0].n+'|'+v[0].day+'|'+v[0].time]})}});
+ const TA=[];S.blocks.forEach(b=>b.entries.forEach(e=>TA.push({n:b.name,disp:b.display,...e})));
+ Object.values(grp(TA,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{
+  if(v.length>1)cf.push({type:'Teacher double-booked in teacher schedule',day:v[0].day,time:v[0].time,who:v[0].disp,
+   what:`${v[0].disp} has ${v.map(x=>x.subject+' '+x.grade+(x.campus?' ('+x.campus.replace(' Campus','')+')':'')).join(' and ')} in the same slot.`,
+   where:v.map(x=>x.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.grade),v[0].disp),cells:[],tk:[v[0].n+'|'+v[0].day+'|'+v[0].time]})});
+ Object.values(grp(T,e=>e.g+'|'+e.day+'|'+e.time)).forEach(v=>{const ns=[...new Set(v.map(x=>x.n))];
+  if(ns.length>1){const gl='Grade '+v[0].gr.replace(/^Grade\s*/i,'');cf.push({type:'Class with two teachers',day:v[0].day,time:v[0].time,who:gl,
+   what:`${gl} has ${v.map(x=>x.disp+' ('+x.sub+')').join(' and ')} at the same time.`,
+   where:v.map(x=>x.ref).join(', '),fix:`Keep one teacher for this slot. Free slots for ${v[1].disp}: ${freeOf(v[1].n,isLow(v[0].gr))}.`,
+   cells:[labelOf(v[0].gr)+'|'+v[0].day+'|'+v[0].time],tk:v.map(x=>x.n+'|'+x.day+'|'+x.time)})}});
+ cf.forEach(c=>c.cells.forEach(k=>{CS[k]={cls:'red',st:'Conflict: '+c.what,lab:'Conflict'}}));
+ rows.forEach(r=>{const c=CS[r.g+'|'+r.day+'|'+r.time];if(c&&c.lab==='Conflict'){r.cls='red';r.st=c.st}});
+ S.rep=S.rep||{};S.rep.sc=rows.map(r=>({grade:r.g,day:r.day,time:r.time,subject:r.sub,teacher:r.t,result:r.st}));
+ S.rep.cf=cf.map(c=>({type:c.type,day:c.day,time:c.time,who:c.who,what:c.what,where:c.where,fix:c.fix}));
+ S.tconf=new Map();cf.forEach(c=>c.tk.forEach(k=>S.tconf.set(k,c.what)));
+ $('scConf').innerHTML=cf.length?`<h3>Conflicts (${cf.length})</h3><div class="wrap" style="border:1px solid var(--line);border-radius:8px"><table><tr><th>Type</th><th>When</th><th>Teacher / Class</th><th>What is wrong</th><th>Where (sheet!cell)</th><th>Suggested fix</th></tr>`+cf.map(c=>`<tr class="red"><td><b>${esc(c.type)}</b></td><td>${c.day}<br>${esc(c.time)}</td><td>${esc(c.who)}</td><td>${esc(c.what)}</td><td>${esc(c.where)}</td><td>${esc(c.fix)}</td></tr>`).join('')+'</table></div><p class="mut" style="font-size:12.5px;margin:8px 0 0">'+((S.blocked||[]).length?'Blocked sessions are never suggested: '+esc(S.blocked.join(', '))+'.':'No sessions are blocked.')+(S.noLow?' Grade 1\u20133 classes are never moved to 11:00 - 11:50 AM; other grades can use it.':'')+'</p>'
+  :'<p class="okn"><b>No conflicts found.</b> No teacher is in two classes at the same time, and no class has two teachers at the same time.</p>';
+ m=rows.filter(r=>r.st==='Match').length;
+ S.kpi=S.kpi||{};S.kpi.sc={m,total:St.length,cf:cf.length};
+ $('scStats').innerHTML=stat('Student periods',St.length)+stat('Match',m)+stat('Slot differs',sd)+stat('Mismatch',mm)+stat('Teacher busy',bz)+stat('Teacher-only',to)+stat('Conflicts',cf.length);
+ const list=rows.filter(r=>$('scF').value==='all'||r.cls!=='grn');
+ const sel=$('scG').value,hdr='<tr><th>Time</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>';
+ $('scGrids').innerHTML=Object.entries(S.layout).filter(([g])=>!sel||g===sel).map(([g,L])=>{
+  const body=L.rows.map(r=>{
+   if(r.t==='head')return hdr;
+   if(r.t==='lunch')return`<tr><td class="lt" colspan="6">${esc(r.label)}</td></tr>`;
+   return`<tr><td class="tm">${esc(r.time)}</td>`+r.cells.map((c,d)=>{
+    if(c.skip)return'';
+    const k=g+'|'+DAYS[d]+'|'+r.time,st=CS[k],x=c.x,txt=esc(c.v).replace(/\n/g,'<br>');
+    const cl=[x?'x':'',st&&st.cls!=='grn'?st.cls:''].filter(Boolean).join(' ');
+    return`<td class="${cl}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} title="${st&&st.cls!=='grn'?esc(st.st):''}">${txt}${st&&st.lab?`<small>${st.lab}</small>`:''}</td>`}).join('')+'</tr>'}).join('');
+  return`<div class="wrap"><table class="xl"><tr><td class="ttl" colspan="6">${esc(L.title)}</td></tr><tr><td class="sess" colspan="6">${esc(L.gradeLine)}</td></tr><tr><td class="sess" colspan="5">${esc(L.session)}</td><td class="sess">${esc(L.campus)}</td></tr>`+body+L.notes.map(n=>`<tr><td class="ft" colspan="6">${esc(n)}</td></tr>`).join('')+'</table></div>'}).join('');
+ $('scOut').innerHTML=list.length?`<table><tr><th>Grade</th><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Result</th></tr>`+
+  list.map(r=>`<tr class="${r.cls==='grn'?'':r.cls}"><td>${esc(r.g)}</td><td>${r.day}</td><td>${esc(r.time)}</td><td>${esc(r.sub)}</td><td>${esc(r.t)}</td><td>${pill(r.cls,r.st)}</td></tr>`).join('')+'</table>':'<p class="mut">No issues found.</p>';renderOV()}
+
+// ---- username sign-in and Excel report (tested by tests/*.test.js) ----
+/*LOGIN-START*/
+// Staff sign in with a short username. The page turns it into a hidden email for Supabase.
+// The domain must be one nobody can register (example.com is reserved), so reset mails can never reach a stranger.
+const LOGIN_DOMAIN='example.com';
+function loginEmail(v){
+ if(v==null)return null;const t=String(v).trim().toLowerCase();if(!t)return null;
+ if(t.indexOf('@')>=0)return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(t)?t:null;
+ return t.length<=64&&t.indexOf('..')<0&&/^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/.test(t)?t+'@'+LOGIN_DOMAIN:null}
+function shortName(n){return n?String(n).replace(new RegExp('@'+LOGIN_DOMAIN.replace(/\./g,'\\.')+'$','i'),''):''}
+/*LOGIN-END*/
+/*REPORT-START*/
+// Turns the saved check results (S.rep) into the sheets of the Excel report. Pure function, no page access.
+const FORMULA=/^[=+\-@\t\r]/;
+const safe=v=>v==null?'':(typeof v==='string'&&FORMULA.test(v)?"'"+v:v);
+function reportName(m){const c=x=>String(x==null?'':x).replace(/[^\w.\-]+/g,'_').replace(/^_+|_+$/g,'');return [c(m.campus),c(m.semester),'report'].filter(Boolean).join('_')+'.xlsx'}
+function buildReport(S,meta){
+ if(!S||!S.rep)throw new Error('No workbook loaded');
+ const k=S.kpi||{},R=S.rep,ts=k.ts||{},sc=k.sc||{};
+ const sum=[['BTB schedule check report'],['Campus',meta.campus],['Semester',meta.semester],['Date',meta.date],['Hours compared',meta.mode],[],
+  ['Check','OK','Total'],['Timesheets',ts.ok,ts.total],['Class schedules',sc.m,sc.total],['Conflicts',sc.cf],
+  k.hr?['Homeroom',k.hr.ok,k.hr.total]:['Homeroom','No homeroom at this campus']];
+ const tsr=[['ID','Name','Subject','Teaching hrs/wk','Periods in grid','Schedule total','Homeroom','Diff','Status']].concat((R.ts||[]).map(r=>[r.id,r.name,r.subject,r.declared,r.counted,r.sched,r.home,r.diff,r.status]));
+ const scr=[['Grade','Day','Time','Subject','Teacher','Result']].concat((R.sc||[]).map(r=>[r.grade,r.day,r.time,r.subject,r.teacher,r.result]));
+ scr.push([],['Conflicts'],['Type','Day','Time','Who','What','Where','Fix']);(R.cf||[]).forEach(c=>scr.push([c.type,c.day,c.time,c.who,c.what,c.where,c.fix]));
+ const hr=R.hr?[['Class','Teacher','Subject','Phone','Timesheet class','Homeroom periods','Status']].concat(R.hr.map(r=>[r.cls,r.teacher,r.subject,r.phone,r.tsClass,r.periods,r.status])):[['No homeroom at this campus']];
+ return [['Summary',sum],['Timesheets',tsr],['Schedules',scr],['Homeroom',hr]].map(([name,rows])=>{
+  rows=rows.map(r=>r.map(safe));const cols=Math.max(...rows.map(r=>r.length));
+  const widths=Array.from({length:cols},(_,c)=>Math.min(60,Math.max(8,...rows.map(r=>String(r[c]==null?'':r[c]).length+2))));
+  return{name,rows,widths}})}
+/*REPORT-END*/
+
+// ---- login, semesters, saved workbooks (Supabase) ----
+const SB_URL='https://zabpwylwyhechouljyva.supabase.co',SB_KEY='sb_publishable_Mv4Nz9jAoBc12APZcDSZTA_LRtYPGmh';
+const sb=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const CAMPUSES=['BTB1','BTB2','BTB3'];
+let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null;
+const canEdit=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
+async function boot(){
+ if(!sb){$('authMsg').textContent='Could not load the sign-in library. Check your internet connection and reload.';return}
+ const {data}=await sb.auth.getSession();await onSession(data.session);
+ sb.auth.onAuthStateChange((_e,sess)=>{onSession(sess)})}
+async function onSession(sess){
+ if(!sess){ME=null;OPENED=null;$('auth').classList.remove('hide');$('who').innerHTML='';$('semBar').classList.add('hide');return}
+ if(ME&&ME.id===sess.user.id)return;
+ const {data}=await sb.from('profiles').select('full_name,role').eq('id',sess.user.id).single();
+ ME={id:sess.user.id,email:sess.user.email,name:shortName((data&&data.full_name)||sess.user.email),role:(data&&data.role)||'viewer'};
+ $('auth').classList.add('hide');$('semBar').classList.remove('hide');
+ $('who').innerHTML=`<b>${esc(ME.name)}</b><small>${esc(ME.role)}</small><button id="out" class="btn ghost">Sign out</button>`;
+ $('out').onclick=()=>sb.auth.signOut();
+ await loadSems()}
+$('aIn').onclick=async()=>{if(!sb)return;const em=loginEmail($('aMail').value);if(!em){$('authMsg').textContent='Enter your username (letters, numbers, dot, dash or underscore).';return}
+ $('authMsg').textContent='Signing in…';const {error}=await sb.auth.signInWithPassword({email:em,password:$('aPass').value});if(error)$('authMsg').textContent=error.message;else $('authMsg').textContent='Signed in. Loading…'};
+$('aPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('aIn').click()});
+async function loadSems(){
+ const {data}=await sb.from('semesters').select('*').order('academic_year',{ascending:false}).order('number',{ascending:false});
+ SEMS=data||[];const keep=$('semSel').value;
+ $('semSel').innerHTML=SEMS.length?SEMS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join(''):'<option value="">No semesters yet</option>';
+ if(SEMS.some(x=>x.id===keep))$('semSel').value=keep;
+ CUR=$('semSel').value||null;
+ $('semNew').classList.toggle('hide',!canEdit());$('saveUp').classList.toggle('hide',!canEdit());
+ await loadHist()}
+$('campSel').onchange=()=>{OPENED=null;loadHist()};
+$('semSel').onchange=()=>{CUR=$('semSel').value||null;OPENED=null;loadHist()};
+$('semNew').onclick=async()=>{const y=(prompt('Academic year, for example 2025-2026')||'').trim();if(!y)return;
+ const n=+prompt('Semester number (1, 2 or 3)');if(![1,2,3].includes(n))return alert('Please use 1, 2 or 3.');
+ const {error}=await sb.from('semesters').insert({academic_year:y,number:n,name:`Semester ${n}, ${y}`,created_by:ME.id});
+ if(error)alert(error.message);else loadSems()};
+async function loadHist(skipOpen){
+ if(!CUR){$('hist').innerHTML='';return}
+ const {data,error}=await sb.from('uploads').select('id,file_name,storage_path,uploaded_at,is_active').eq('semester_id',CUR).eq('campus',$('campSel').value).order('uploaded_at',{ascending:false});
+ if(error){$('hist').innerHTML='<p class="mut">Could not list saved workbooks: '+esc(error.message)+(/campus/i.test(error.message)?' Run the add_campus.sql file in Supabase first.':'')+'</p>';return}
+ const L=data||[];
+ $('hist').innerHTML=L.length?`<div class="wrap" style="border:1px solid var(--line);border-radius:8px"><table><tr><th>Saved workbook</th><th>Saved on</th><th>Status</th><th></th></tr>`+
+  L.map(u=>`<tr><td>${esc(u.file_name)}</td><td>${esc(new Date(u.uploaded_at).toLocaleString())}</td><td>${u.is_active?pill('grn','Active'):'<span class="mut">Older</span>'}</td><td class="n"><button class="btn ghost" data-open="${u.id}">Open</button></td></tr>`).join('')+'</table></div>'
+  :'<p class="mut">No saved workbook for this semester yet. Choose a file above, then save it to the semester.</p>';
+ $('hist').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openUpload(L.find(x=>x.id===b.dataset.open)));
+ const act=L.find(x=>x.is_active);if(act&&OPENED!==act.id&&!skipOpen)openUpload(act)}
+async function openUpload(u){
+ if(!u)return;OPENED=u.id;$('msg').textContent='Opening saved workbook…';
+ const r=await sb.storage.from('workbooks').download(u.storage_path);
+ if(r.error){$('msg').textContent='Could not open the saved file: '+r.error.message;return}
+ await loadBuf(await r.data.arrayBuffer(),u.file_name)}
+$('saveUp').onclick=async()=>{
+ if(!LAST||!CUR)return alert('Choose a semester and a workbook file first.');
+ const cmp=$('campSel').value;
+ if(S&&S.campus&&S.campus!==cmp&&!confirm('This workbook looks like '+S.campus+' but the campus selected is '+cmp+'. Save it as '+cmp+' anyway?'))return;
+ const path=`${CUR}/${cmp}/${Date.now()}-${LAST.name.replace(/[^\w.\-]/g,'_')}`;
+ let r=await sb.storage.from('workbooks').upload(path,new Blob([LAST.buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+ if(r.error)return alert('Upload failed: '+r.error.message);
+ await sb.from('uploads').update({is_active:false}).eq('semester_id',CUR).eq('campus',cmp).eq('is_active',true);
+ r=await sb.from('uploads').insert({semester_id:CUR,campus:cmp,storage_path:path,file_name:LAST.name,uploaded_by:ME.id,summary:S?(S.kpi||{}):{}}).select('id').single();
+ if(r.error)return alert('Could not record the upload: '+r.error.message);
+ OPENED=r.data.id;await loadHist();$('msg').textContent+=' Saved to the semester.'};
+$('expBtn').onclick=()=>{
+ if(!S||!S.rep){alert('Open a workbook first.');return}
+ const sem=SEMS.find(x=>x.id===CUR);
+ const meta={campus:S.campus||$('campSel').value,semester:sem?sem.name:$('sem').textContent,date:new Date().toISOString().slice(0,10),mode:$('mode').value==='counted'?'Periods counted in the Timesheet grid':'Teaching hours/week'};
+ const wb=XLSX.utils.book_new();
+ buildReport(S,meta).forEach(sh=>{const ws=XLSX.utils.aoa_to_sheet(sh.rows);ws['!cols']=sh.widths.map(w=>({wch:w}));XLSX.utils.book_append_sheet(wb,ws,sh.name)});
+ XLSX.writeFile(wb,reportName(meta))};
+boot();
+</script></body></html>
