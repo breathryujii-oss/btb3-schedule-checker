@@ -556,11 +556,16 @@ async function delOlder(list){
  if(!confirm('Delete '+old.length+' older saved version'+(old.length>1?'s':'')+' for this campus and semester? The active workbook stays. This cannot be undone.'))return;
  await deleteUploads(old)}
 /*DELETE-END*/
+/*HIST-START*/
 async function loadHist(skipOpen){
  if(!CUR){$('hist').innerHTML='';return}
  const {data,error}=await sb.from('uploads').select('id,file_name,storage_path,uploaded_at,is_active').eq('semester_id',CUR).eq('campus',$('campSel').value).order('uploaded_at',{ascending:false});
  if(error){$('hist').innerHTML='<p class="mut">Could not list saved workbooks: '+esc(error.message)+(/campus/i.test(error.message)?' Run the add_campus.sql file in Supabase first.':'')+'</p>';return}
  const L=data||[];
+ // Viewers only read: no saved-workbook list, but the active workbook still opens by itself.
+ if(!canEdit()){
+  $('hist').innerHTML=L.some(x=>x.is_active)?'':'<p class="mut">No workbook has been saved for this campus and semester yet.</p>';
+  const a=L.find(x=>x.is_active);if(a&&OPENED!==a.id&&!skipOpen)openUpload(a);return}
  $('hist').innerHTML=L.length?`<div class="wrap" style="border:1px solid var(--line);border-radius:8px"><table><tr><th>Saved workbook</th><th>Saved on</th><th>Status</th><th></th></tr>`+
   L.map(u=>`<tr><td>${esc(u.file_name)}</td><td>${esc(new Date(u.uploaded_at).toLocaleString())}</td><td>${u.is_active?pill('grn','Active'):'<span class="mut">Older</span>'}</td><td class="n"><button class="btn ghost" data-open="${u.id}">Open</button>${canDel()?` <button class="btn ghost danger" data-del="${u.id}">Delete</button>`:''}</td></tr>`).join('')+'</table></div>'+(canDel()&&L.some(x=>!x.is_active)?`<p style="margin:8px 0 0"><button id="delOlder" class="btn ghost danger">Delete all older versions (${L.filter(x=>!x.is_active).length})</button></p>`:'')
   :'<p class="mut">No saved workbook for this semester yet. Choose a file above, then save it to the semester.</p>';
@@ -568,6 +573,7 @@ async function loadHist(skipOpen){
  $('hist').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delOne(L.find(x=>x.id===b.dataset.del)));
  const dO=$('delOlder');if(dO)dO.onclick=()=>delOlder(L);
  const act=L.find(x=>x.is_active);if(act&&OPENED!==act.id&&!skipOpen)openUpload(act)}
+/*HIST-END*/
 async function openUpload(u){
  if(!u)return;OPENED=u.id;$('msg').textContent='Opening saved workbook…';
  const r=await sb.storage.from('workbooks').download(u.storage_path);
