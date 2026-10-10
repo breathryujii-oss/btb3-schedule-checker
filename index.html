@@ -88,6 +88,7 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .authbox input{height:38px;font:inherit;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
 .authbtn{display:flex;gap:10px;margin-top:4px}.authbtn .btn{flex:1}
 .btn{height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--accink);font:inherit;font-weight:600;cursor:pointer}
+.btn.danger{color:#b42318;border-color:#b42318}
 .btn.ghost{background:transparent;color:var(--acc)}
 .who{margin:auto 8px 0;display:grid;gap:2px;font-size:13px;color:#fff}.who small{color:var(--railink);margin-bottom:8px}
 .who .btn{height:32px;border-color:rgba(255,255,255,.4);color:#fff}
@@ -534,22 +535,45 @@ $('semNew').onclick=async()=>{const y=(prompt('Academic year, for example 2025-2
  const n=+prompt('Semester number (1, 2 or 3)');if(![1,2,3].includes(n))return alert('Please use 1, 2 or 3.');
  const {error}=await sb.from('semesters').insert({academic_year:y,number:n,name:`Semester ${n}, ${y}`,created_by:ME.id});
  if(error)alert(error.message);else loadSems()};
+/*DELETE-START*/
+// Deleting saved workbooks. Only admins see these buttons (the database also enforces it).
+const canDel=()=>!!ME&&ME.role==='admin';
+async function deleteUploads(items){
+ if(!items||!items.length)return true;
+ const r=await sb.storage.from('workbooks').remove(items.map(u=>u.storage_path));
+ if(r.error){alert('Could not delete the files: '+r.error.message);return false}
+ const d=await sb.from('uploads').delete().in('id',items.map(u=>u.id));
+ if(d.error){alert('The files were removed but the list could not be updated: '+d.error.message);return false}
+ await loadHist(true);return true}
+async function delOne(u){
+ if(!u||!canDel())return;
+ if(!confirm('Delete "'+u.file_name+'" saved on '+new Date(u.uploaded_at).toLocaleString()+'?'+(u.is_active?' This is the ACTIVE workbook, so this campus will have no active workbook.':'')+' This cannot be undone.'))return;
+ if(OPENED===u.id)OPENED=null;
+ await deleteUploads([u])}
+async function delOlder(list){
+ if(!canDel())return;
+ const old=(list||[]).filter(x=>!x.is_active);if(!old.length)return;
+ if(!confirm('Delete '+old.length+' older saved version'+(old.length>1?'s':'')+' for this campus and semester? The active workbook stays. This cannot be undone.'))return;
+ await deleteUploads(old)}
+/*DELETE-END*/
 async function loadHist(skipOpen){
  if(!CUR){$('hist').innerHTML='';return}
  const {data,error}=await sb.from('uploads').select('id,file_name,storage_path,uploaded_at,is_active').eq('semester_id',CUR).eq('campus',$('campSel').value).order('uploaded_at',{ascending:false});
  if(error){$('hist').innerHTML='<p class="mut">Could not list saved workbooks: '+esc(error.message)+(/campus/i.test(error.message)?' Run the add_campus.sql file in Supabase first.':'')+'</p>';return}
  const L=data||[];
  $('hist').innerHTML=L.length?`<div class="wrap" style="border:1px solid var(--line);border-radius:8px"><table><tr><th>Saved workbook</th><th>Saved on</th><th>Status</th><th></th></tr>`+
-  L.map(u=>`<tr><td>${esc(u.file_name)}</td><td>${esc(new Date(u.uploaded_at).toLocaleString())}</td><td>${u.is_active?pill('grn','Active'):'<span class="mut">Older</span>'}</td><td class="n"><button class="btn ghost" data-open="${u.id}">Open</button></td></tr>`).join('')+'</table></div>'
+  L.map(u=>`<tr><td>${esc(u.file_name)}</td><td>${esc(new Date(u.uploaded_at).toLocaleString())}</td><td>${u.is_active?pill('grn','Active'):'<span class="mut">Older</span>'}</td><td class="n"><button class="btn ghost" data-open="${u.id}">Open</button>${canDel()?` <button class="btn ghost danger" data-del="${u.id}">Delete</button>`:''}</td></tr>`).join('')+'</table></div>'+(canDel()&&L.some(x=>!x.is_active)?`<p style="margin:8px 0 0"><button id="delOlder" class="btn ghost danger">Delete all older versions (${L.filter(x=>!x.is_active).length})</button></p>`:'')
   :'<p class="mut">No saved workbook for this semester yet. Choose a file above, then save it to the semester.</p>';
  $('hist').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openUpload(L.find(x=>x.id===b.dataset.open)));
+ $('hist').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delOne(L.find(x=>x.id===b.dataset.del)));
+ const dO=$('delOlder');if(dO)dO.onclick=()=>delOlder(L);
  const act=L.find(x=>x.is_active);if(act&&OPENED!==act.id&&!skipOpen)openUpload(act)}
 async function openUpload(u){
  if(!u)return;OPENED=u.id;$('msg').textContent='Opening saved workbook…';
  const r=await sb.storage.from('workbooks').download(u.storage_path);
  if(r.error){$('msg').textContent='Could not open the saved file: '+r.error.message;return}
  await loadBuf(await r.data.arrayBuffer(),u.file_name)}
-$('saveUp').onclick=async()=>{
+async function doSave(){
  if(!LAST||!CUR)return alert('Choose a semester and a workbook file first.');
  const cmp=$('campSel').value;
  if(S&&S.campus&&S.campus!==cmp&&!confirm('This workbook looks like '+S.campus+' but the campus selected is '+cmp+'. Save it as '+cmp+' anyway?'))return;
@@ -559,7 +583,8 @@ $('saveUp').onclick=async()=>{
  await sb.from('uploads').update({is_active:false}).eq('semester_id',CUR).eq('campus',cmp).eq('is_active',true);
  r=await sb.from('uploads').insert({semester_id:CUR,campus:cmp,storage_path:path,file_name:LAST.name,uploaded_by:ME.id,summary:S?(S.kpi||{}):{}}).select('id').single();
  if(r.error)return alert('Could not record the upload: '+r.error.message);
- OPENED=r.data.id;await loadHist();$('msg').textContent+=' Saved to the semester.'};
+ OPENED=r.data.id;await loadHist();$('msg').textContent+=' Saved to the semester.'}
+$('saveUp').onclick=async()=>{const b=$('saveUp');if(b.disabled)return;b.disabled=true;try{await doSave()}finally{b.disabled=false}};
 $('expBtn').onclick=()=>{
  if(!S||!S.rep){alert('Open a workbook first.');return}
  const sem=SEMS.find(x=>x.id===CUR);
