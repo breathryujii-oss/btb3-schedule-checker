@@ -88,6 +88,10 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .authbox input{height:38px;font:inherit;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
 .authbtn{display:flex;gap:10px;margin-top:4px}.authbtn .btn{flex:1}
 .btn{height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--accink);font:inherit;font-weight:600;cursor:pointer}
+.eb{display:flex;gap:10px 12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:10px 14px;margin:0 0 18px;font-size:13.5px}
+.eb span{flex:1 1 360px}.eb .btn[disabled]{opacity:.45;cursor:default}
+.xl td.drag{cursor:grab}.xl td.dragging{opacity:.4}
+.xl td.okdrop{outline:3px solid var(--kok);outline-offset:-3px}.xl td.nodrop{outline:3px solid var(--kred);outline-offset:-3px}
 .btn.danger{color:#b42318;border-color:#b42318}
 .btn.ghost{background:transparent;color:var(--acc)}
 .who{margin:auto 8px 0;display:grid;gap:2px;font-size:13px;color:#fff}.who small{color:var(--railink);margin-bottom:8px}
@@ -142,6 +146,7 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <div class="wb" id="wb"><div><b>Workbook</b><span id="msg" class="mut">No file loaded. Drop an .xlsx here or choose one.</span></div><input type="file" id="f" accept=".xlsx,.xlsm"><button id="expBtn" class="btn ghost" title="Download all results as an Excel file">Download report (Excel)</button></div>
 <div class="wb hide" id="semBar"><b>Semester</b><select id="semSel"></select><b>Campus</b><select id="campSel"><option>BTB1</option><option>BTB2</option><option>BTB3</option></select><button id="semNew" class="btn ghost hide">New semester</button><button id="saveUp" class="btn hide">Save this workbook to the semester</button></div>
 <div id="hist" style="margin:-8px 0 18px"></div>
+<div class="eb hide" id="editBar"><span id="editMsg"></span><button id="undoBtn" class="btn ghost">Undo last</button><button id="saveEdits" class="btn">Save changes</button><button id="discardEdits" class="btn ghost">Discard unsaved</button></div>
 <div class="ov" id="ov"></div>
 <section id="ts" class="panel"><h2>Timesheets</h2>
 <p class="lede">Teacher period hours (TIMESHEET) vs. total hours in the teacher's schedule, matched by teacher name. Mismatches are highlighted yellow. Homeroom periods are not counted here; they are listed in the Homeroom tab.</p>
@@ -219,7 +224,7 @@ function parseTeachers(wb,X,list){const out=[];
    if(/Teacher.?s Schedule/i.test(b)){title=b;sy='';cur=null;return}
    if(!cur&&/^(School|Academic) Year/i.test(b)){sy=b;return}
    const m=b.match(/Instructor:\s*(.+?)\s*\(Tel/i)||b.match(/Instructor:\s*(.+)$/i);
-   if(m){cur={subject:sn.replace(/^\d+-/,''),name:nName(m[1]),display:clean(m[1]).replace(/^(Mr|Ms|Mrs)\.?\s+/i,''),entries:[],crossed:new Set(),
+   if(m){cur={subject:sn.replace(/^\d+-/,''),name:nName(m[1]),display:clean(m[1]).replace(/^(Mr|Ms|Mrs)\.?\s+/i,''),entries:[],crossed:new Set(),full:clean(m[1]),
     title,sy,instr:b.replace(/\s+/g,' '),campus:clean(r[6]),campusBg:inf(ri,6).bg,rows:[]};out.push(cur);return}
    if(!cur)return;
    if(/^Lunch/i.test(b)){cur.rows.push({t:'lunch',label:b});return}
@@ -227,7 +232,7 @@ function parseTeachers(wb,X,list){const out=[];
    if(/^\d{1,2}:\d{2}/.test(b)){const cells=[];let brk=false;
     for(let d=0;d<5;d++){const v=clean(r[2+d]),i=inf(ri,2+d),K=ri+'|'+(2+d);
      if(i.x)cur.crossed.add(DAYS[d]+'|'+b);
-     cells.push({v,x:!!i.x,bg:i.bg,cs:mg[K]>1?mg[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K)});
+     cells.push({v,x:!!i.x,bg:i.bg,cs:mg[K]>1?mg[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)});
      if(d===0&&/^break/i.test(v))brk=true;
      if(v&&!/^break/i.test(v)){const L=v.split('\n').map(clean).filter(Boolean);cur.entries.push({day:DAYS[d],time:b,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
     cur.rows.push({t:'row',time:b,tbg:inf(ri,1).bg,cells,brk});return}
@@ -268,7 +273,7 @@ function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={};
    if(/^\d{1,2}:\d{2}/.test(b)){const cells=[];let brk=false;
     for(let d=0;d<5;d++){const v=clean(r[2+d]),K=ri+'|'+(2+d),x=!!(xs.get(String.fromCharCode(67+d)+(ri+1))||{}).x;
      if(x)cross.add(grade+'|'+DAYS[d]+'|'+b);
-     cells.push({v,x,cs:MI.cs[K]>1?MI.cs[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K)});
+     cells.push({v,x,cs:MI.cs[K]>1?MI.cs[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)});
      if(d===0&&/^break/i.test(v))brk=true;
      if(v&&!/^break/i.test(v)){const L=v.split('\n').map(clean).filter(Boolean);
       out.push({grade,day:DAYS[d],time:b,subject:L[0],teacher:L.slice(1).join(' '),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
@@ -279,7 +284,7 @@ function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={};
 const wb_=$('wb');['dragover','dragenter'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.add('drag')}));
 ['dragleave','drop'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.remove('drag')}));
 wb_.addEventListener('drop',e=>{const fl=e.dataTransfer.files;if(fl&&fl.length){$('f').files=fl;$('f').dispatchEvent(new Event('change'))}});
-async function loadBuf(buf,name){$('msg').textContent='Reading…';
+async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVED=[];CURBUF={buf,name};
  try{const wb=XLSX.read(buf,{type:'array'});
   if(!wb.Sheets['TIMESHEET'])throw new Error('No TIMESHEET sheet found');
   let X={};try{X=await crossedCells(buf)}catch(e){console.warn('crossed cells not read',e)}
@@ -303,9 +308,9 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';
   S.blocked=allT.filter(t=>/^4:00.*PM/i.test(t));
   $('blkBar').innerHTML='<span>Blocked sessions (never suggested for fixes):</span>'+allT.map(t=>`<label><input type="checkbox" data-t="${esc(t)}"${S.blocked.includes(t)?' checked':''}>${esc(t)}</label>`).join('')+'<span style="flex:1 1 100%"></span><label><input type="checkbox" id="lowChk" checked>Grade 1\u20133 classes: never suggest 11:00 - 11:50 AM</label>';
   S.noLow=true;
-  renderTS();renderSC();renderTC();renderHR();
+  renderTS();renderSC();renderTC();renderHR();renderEditBar();
  }catch(err){$('msg').textContent='Could not read file: '+err.message}}
-document.getElementById('f').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();LAST={buf,name:f.name};loadBuf(buf,f.name)});
+document.getElementById('f').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();LAST={buf,name:f.name};OPENED=null;CURU=null;loadBuf(buf,f.name)});
 
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('#tabs button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-current',x===b?'page':'false')});
@@ -384,9 +389,9 @@ function xlTeacher(b){
  const body=b.rows.map(r=>{
   if(r.t==='head')return hdr;
   if(r.t==='lunch')return`<tr><td class="lt" colspan="6">${esc(r.label)}</td></tr>`;
-  if(r.t==='foot')return'<tr>'+r.items.map(it=>`<td class="ft" colspan="${it.span}" style="text-align:${it.al};${it.bg?`background:${it.bg};color:#000;`:''}${it.bold?'font-weight:700':''}">${it.v==='__TOT__'?b.entries.length:esc(it.v)}</td>`).join('')+'</tr>';
-  return`<tr><td class="tm" style="${r.tbg?`background:${r.tbg};color:#000`:''}">${esc(r.time)}</td>`+r.cells.map((c,d)=>{if(c.skip)return'';const cm=S.tconf&&S.tconf.get(b.name+'|'+DAYS[d]+'|'+r.time);
-   return`<td class="${[c.x?'x':'',cm?'red':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
+  if(r.t==='foot')return'<tr>'+r.items.map(it=>`<td class="ft" colspan="${it.span}" style="text-align:${it.al};${it.bg?`background:${it.bg};color:#000;`:''}${it.bold?'font-weight:700':''}">${it.v==='__TOT__'?b.entries.length+' Hours/Week':esc(it.v)}</td>`).join('')+'</tr>';
+  return`<tr><td class="tm" style="${r.tbg?`background:${r.tbg};color:#000`:''}">${esc(r.time)}</td>`+r.cells.map((c,d)=>{if(c.skip)return'';const cm=S.tconf&&S.tconf.get(b.name+'|'+DAYS[d]+'|'+r.time),dr=canArrange()&&c.v&&!r.brk,bi=S.blocks.indexOf(b);
+   return`<td class="${[c.x?'x':'',cm?'red':'',dr?'drag':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-b="${bi}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
  const cm=S.tconf?[...S.tconf.entries()].filter(([k])=>k.startsWith(b.name+'|')):[],ban=cm.length?`<tr><td class="cfl" colspan="6">Conflict (${cm.length} slot${cm.length>1?'s':''}): ${esc([...new Set(cm.map(x=>x[1]))].join(' '))}</td></tr>`:'';
  return`<div class="wrap" style="margin-bottom:18px"><table class="xl xt"><tr><td class="ttl" colspan="6">${esc(b.title)}</td></tr><tr><td class="lt" colspan="6">${esc(b.sy)}</td></tr><tr><td class="sess" colspan="5">${esc(b.instr)}</td><td class="sess" style="${b.campusBg?`background:${b.campusBg};color:#000`:''}">${esc(b.campus)}</td></tr>${ban}${body}</table></div>`}
 
@@ -461,8 +466,8 @@ function renderSC(){
    return`<tr><td class="tm">${esc(r.time)}</td>`+r.cells.map((c,d)=>{
     if(c.skip)return'';
     const k=g+'|'+DAYS[d]+'|'+r.time,st=CS[k],x=c.x,txt=esc(c.v).replace(/\n/g,'<br>');
-    const cl=[x?'x':'',st&&st.cls!=='grn'?st.cls:''].filter(Boolean).join(' ');
-    return`<td class="${cl}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} title="${st&&st.cls!=='grn'?esc(st.st):''}">${txt}${st&&st.lab?`<small>${st.lab}</small>`:''}</td>`}).join('')+'</tr>'}).join('');
+    const dr=canArrange()&&c.v&&!r.brk,cl=[x?'x':'',st&&st.cls!=='grn'?st.cls:'',dr?'drag':''].filter(Boolean).join(' ');
+    return`<td class="${cl}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-g="${esc(g)}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${st&&st.cls!=='grn'?esc(st.st):''}">${txt}${st&&st.lab?`<small>${st.lab}</small>`:''}</td>`}).join('')+'</tr>'}).join('');
   return`<div class="wrap"><table class="xl"><tr><td class="ttl" colspan="6">${esc(L.title)}</td></tr><tr><td class="sess" colspan="6">${esc(L.gradeLine)}</td></tr><tr><td class="sess" colspan="5">${esc(L.session)}</td><td class="sess">${esc(L.campus)}</td></tr>`+body+L.notes.map(n=>`<tr><td class="ft" colspan="6">${esc(n)}</td></tr>`).join('')+'</table></div>'}).join('');
  $('scOut').innerHTML=list.length?`<table><tr><th>Grade</th><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Result</th></tr>`+
   list.map(r=>`<tr class="${r.cls==='grn'?'':r.cls}"><td>${esc(r.g)}</td><td>${r.day}</td><td>${esc(r.time)}</td><td>${esc(r.sub)}</td><td>${esc(r.t)}</td><td>${pill(r.cls,r.st)}</td></tr>`).join('')+'</table>':'<p class="mut">No issues found.</p>';renderOV()}
@@ -499,12 +504,104 @@ function buildReport(S,meta){
   return{name,rows,widths}})}
 /*REPORT-END*/
 
+/*EDIT-START*/
+// Moving classes by drag and drop. Pure functions: they change the parsed schedule S and nothing else.
+function cellAt(rows,day,time){const d=DAYS.indexOf(day),r=rows.find(x=>x.t==='row'&&x.time===time);return r&&d>=0?{row:r,cell:r.cells[d]}:null}
+const classLines=v=>clean(v).split('\n').map(clean).filter(Boolean);
+const isClass=a=>!!a&&!!clean(a.cell.v)&&!/^break/i.test(clean(a.cell.v))&&!a.row.brk&&!a.cell.skip;
+const sameShape=(a,b)=>(a.cs||0)===(b.cs||0)&&(a.rs||0)===(b.rs||0);
+const lowGrade=g=>/^[1-3](?!\d)/.test(nGrade(g));
+const gradeLabel=(S,g)=>Object.keys(S.layout).find(k=>code(k)===code(g));
+const mineCampus=(S,c)=>!c||!S.campus||clean(c).toUpperCase().indexOf(S.campus.toUpperCase())>=0;
+function rebuildAll(S){
+ S.blocks.forEach(b=>{b.entries=[];b.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{const v=clean(c.v);if(!v||/^break/i.test(v)||c.skip)return;
+  const L=classLines(v);b.entries.push({day:DAYS[d],time:r.time,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:c.ref})})})});
+ S.stud=[];Object.entries(S.layout).forEach(([g,L])=>L.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{const v=clean(c.v);if(!v||/^break/i.test(v)||c.skip)return;
+  const P=classLines(v);S.stud.push({grade:g,day:DAYS[d],time:r.time,subject:P[0],teacher:P.slice(1).join(' '),ref:c.ref})})}))}
+function teacherBusy(S,name,day,time,skipBi){const out=[];S.blocks.forEach((b,bi)=>{if(b.name!==name||bi===skipBi)return;const at=cellAt(b.rows,day,time);if(!at)return;
+ if(at.cell.x)out.push('is busy (crossed out) on '+day+' at '+time);else if(clean(at.cell.v))out.push('already has a class on '+day+' at '+time)});return out}
+function teacherBlockOf(S,name,subject,grade,day,time){for(let i=0;i<S.blocks.length;i++){const b=S.blocks[i];if(b.name!==name)continue;
+ if(b.entries.some(e=>e.day===day&&e.time===time&&nSub(e.subject)===nSub(subject)&&code(e.grade)===code(grade)))return i}return -1}
+function ruleWarnings(S,grade,time){const w=[];
+ if((S.blocked||[]).includes(time))w.push(time+' is a blocked session.');
+ if(S.noLow&&lowGrade(grade)&&/^11:00.*AM/i.test(time))w.push('Grade 1-3 classes should not be at '+time+'.');return w}
+// mv = {kind:'student', g:<class label>, from:{day,time}, to:{day,time}}     drop on a class = swap the two, drop on an empty slot = move
+//    | {kind:'teacher', bi:<teacher sheet index>, from:{day,time}, toBi:<teacher sheet index>, to:{day,time}}   same slot + other teacher = hand the class over
+function checkMove(S,mv){
+ const out={ok:false,reasons:[],warnings:[]},R=m=>{out.reasons.push(m)},f=mv.from,t=mv.to;
+ if(!S||!f||!t){R('Nothing is loaded.');return out}
+ if(mv.kind==='student'){
+  const L=S.layout[mv.g];if(!L){R('Class not found.');return out}
+  if(mv.toG!==undefined&&mv.toG!==mv.g){R('Drop the class on a slot of the same class table.');return out}
+  if(f.day===t.day&&f.time===t.time){R('That is the same slot.');return out}
+  const A=cellAt(L.rows,f.day,f.time),B=cellAt(L.rows,t.day,t.time);
+  if(!isClass(A)){R('There is no class to move here.');return out}
+  if(!B||B.row.brk||B.cell.skip){R('That is not a class period.');return out}
+  if(B.cell.x){R('That slot is crossed out (not used).');return out}
+  if(!sameShape(A.cell,B.cell))R('That slot has a different length.');
+  const swapping=isClass(B),P=classLines(A.cell.v),Q=swapping?classLines(B.cell.v):null;
+  if(swapping&&clean(A.cell.v)===clean(B.cell.v)){R('Both slots have the same class, so nothing would change.');return out}
+  const t1=nName(P.slice(1).join(' ')),t2=swapping?nName(Q.slice(1).join(' ')):'',same=swapping&&!!t1&&t1===t2;
+  const bi1=t1?teacherBlockOf(S,t1,P[0],mv.g,f.day,f.time):-1,bi2=swapping&&t2?teacherBlockOf(S,t2,Q[0],mv.g,t.day,t.time):-1;
+  // each teacher must be free at the new time; the only cell ignored is the one of the class that is leaving that slot
+  if(t1)teacherBusy(S,t1,t.day,t.time,same?bi2:-1).forEach(x=>R(P.slice(1).join(' ')+' '+x+'.'));
+  if(swapping&&t2)teacherBusy(S,t2,f.day,f.time,same?bi1:-1).forEach(x=>R(Q.slice(1).join(' ')+' '+x+'.'));
+  [bi1,bi2].forEach(bi=>{if(bi<0)return;const Bk=S.blocks[bi],x=cellAt(Bk.rows,f.day,f.time),y=cellAt(Bk.rows,t.day,t.time);
+   if(!x||!y||y.row.brk||y.cell.skip||!sameShape(x.cell,y.cell))R('The teacher sheet of '+Bk.display+' has no matching period at that time.')});
+  if(t1&&bi1<0&&P.length>1)out.warnings.push('The teacher schedule of '+P.slice(1).join(' ')+' has no matching class, so only the class schedule will change.');
+  if(swapping&&t2&&bi2<0&&Q.length>1)out.warnings.push('The teacher schedule of '+Q.slice(1).join(' ')+' has no matching class, so only the class schedule will change.');
+  ruleWarnings(S,mv.g,t.time).forEach(w=>out.warnings.push(w));if(swapping)ruleWarnings(S,mv.g,f.time).forEach(w=>out.warnings.push(w));
+ }else{
+  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj],sameSlot=f.day===t.day&&f.time===t.time;
+  if(!B||!B2){R('Teacher not found.');return out}
+  if(mv.bi===bj&&sameSlot){R('That is the same slot.');return out}
+  const a=cellAt(B.rows,f.day,f.time),b=cellAt(B2.rows,t.day,t.time);
+  if(!isClass(a)){R('There is no class to move here.');return out}
+  if(!b||b.row.brk||b.cell.skip){R('That is not a class period.');return out}
+  if(!sameShape(a.cell,b.cell))R('That slot has a different length.');
+  teacherBusy(S,B2.name,t.day,t.time).forEach(x=>R(B2.display+' '+x+'.'));
+  const P=classLines(a.cell.v),label=gradeLabel(S,P[1]||'');let linked=false;
+  if(label&&mineCampus(S,P[2])){const L=S.layout[label],x=cellAt(L.rows,f.day,f.time),y=cellAt(L.rows,t.day,t.time),XL=x&&classLines(x.cell.v);
+   if(isClass(x)&&nName(XL.slice(1).join(' '))===B.name&&nSub(XL[0])===nSub(P[0])){linked=true;
+    if(!sameSlot){
+     if(!y||y.row.brk||y.cell.skip)R('Class '+label+' has no period at that time.');
+     else if(y.cell.x)R('Class '+label+': that slot is crossed out (not used).');
+     else if(clean(y.cell.v))R('Class '+label+' already has '+classLines(y.cell.v)[0]+' at that time. To change the time, swap the two classes in the Schedules tab.');
+     else if(!sameShape(x.cell,y.cell))R('Class '+label+': that slot has a different length.')}}}
+  if(!linked&&!/^homeroom/i.test(P[0]))out.warnings.push('This class is not in the class schedule, so only the teacher schedule will change.');
+  if(bj!==mv.bi&&B.subject!==B2.subject)out.warnings.push('This hands the class to a teacher from another subject sheet ('+B2.subject+').');
+  ruleWarnings(S,P[1]||'',t.time).forEach(w=>out.warnings.push(w));
+ }
+ out.warnings=[...new Set(out.warnings)];out.ok=!out.reasons.length;return out}
+function applyMove(S,mv){
+ const f=mv.from,t=mv.to,swap=(a,b)=>{const v=a.v,g=a.bg;a.v=b.v;a.bg=b.bg;b.v=v;b.bg=g};
+ if(mv.kind==='student'){
+  const L=S.layout[mv.g],A=cellAt(L.rows,f.day,f.time),B=cellAt(L.rows,t.day,t.time),P=classLines(A.cell.v),swapping=isClass(B),Q=swapping?classLines(B.cell.v):null;
+  const t1=nName(P.slice(1).join(' ')),t2=swapping?nName(Q.slice(1).join(' ')):'';
+  const bi1=t1?teacherBlockOf(S,t1,P[0],mv.g,f.day,f.time):-1,bi2=swapping&&t2?teacherBlockOf(S,t2,Q[0],mv.g,t.day,t.time):-1;
+  swap(A.cell,B.cell);
+  new Set([bi1,bi2]).forEach(bi=>{if(bi<0)return;const Bk=S.blocks[bi],x=cellAt(Bk.rows,f.day,f.time),y=cellAt(Bk.rows,t.day,t.time);if(x&&y)swap(x.cell,y.cell)});
+ }else{
+  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj];
+  const a=cellAt(B.rows,f.day,f.time).cell,b=cellAt(B2.rows,t.day,t.time).cell,P=classLines(a.v),label=gradeLabel(S,P[1]||'');
+  let sa=null,sb=null;
+  if(label&&mineCampus(S,P[2])){const x=cellAt(S.layout[label].rows,f.day,f.time),y=cellAt(S.layout[label].rows,t.day,t.time);
+   if(x&&y&&clean(x.cell.v)&&nName(classLines(x.cell.v).slice(1).join(' '))===B.name&&nSub(classLines(x.cell.v)[0])===nSub(P[0])){sa=x.cell;sb=y.cell}}
+  swap(a,b);
+  if(sa){if(sa!==sb)swap(sa,sb);if(bj!==mv.bi)sb.v=classLines(sb.v)[0]+'\n'+B2.full}
+ }
+ rebuildAll(S)}
+function inverseMove(mv){return mv.kind==='student'?{kind:'student',g:mv.g,from:mv.to,to:mv.from}
+ :{kind:'teacher',bi:mv.toBi==null?mv.bi:mv.toBi,from:mv.to,toBi:mv.bi,to:mv.from}}
+/*EDIT-END*/
+
 // ---- login, semesters, saved workbooks (Supabase) ----
 const SB_URL='https://zabpwylwyhechouljyva.supabase.co',SB_KEY='sb_publishable_Mv4Nz9jAoBc12APZcDSZTA_LRtYPGmh';
 const sb=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 const CAMPUSES=['BTB1','BTB2','BTB3'];
-let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null;
+let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null,CURU=null,CURBUF=null,EDITS=[],SAVED=[],DRAG=null,OVER=null;
 const canEdit=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
+const canArrange=()=>!!ME&&ME.role==='admin';
 async function boot(){
  if(!sb){$('authMsg').textContent='Could not load the sign-in library. Check your internet connection and reload.';return}
  const {data}=await sb.auth.getSession();await onSession(data.session);
@@ -575,10 +672,14 @@ async function loadHist(skipOpen){
  const act=L.find(x=>x.is_active);if(act&&OPENED!==act.id&&!skipOpen)openUpload(act)}
 /*HIST-END*/
 async function openUpload(u){
- if(!u)return;OPENED=u.id;$('msg').textContent='Opening saved workbook…';
+ if(!u)return;OPENED=u.id;CURU=u;$('msg').textContent='Opening saved workbook…';
  const r=await sb.storage.from('workbooks').download(u.storage_path);
  if(r.error){$('msg').textContent='Could not open the saved file: '+r.error.message;return}
- await loadBuf(await r.data.arrayBuffer(),u.file_name)}
+ await loadBuf(await r.data.arrayBuffer(),u.file_name);
+ const e=await sb.from('schedule_edits').select('edits').eq('upload_id',u.id).maybeSingle();
+ if(e.data&&Array.isArray(e.data.edits)&&e.data.edits.length&&S){
+  const ok=[];e.data.edits.forEach(mv=>{try{applyMove(S,mv);ok.push(mv)}catch(err){console.warn('saved edit skipped',err)}});
+  EDITS=ok;SAVED=JSON.parse(JSON.stringify(ok));afterEdit();$('msg').textContent+=' '+ok.length+' saved change'+(ok.length>1?'s':'')+' applied.'}}
 async function doSave(){
  if(!LAST||!CUR)return alert('Choose a semester and a workbook file first.');
  const cmp=$('campSel').value;
@@ -591,6 +692,41 @@ async function doSave(){
  if(r.error)return alert('Could not record the upload: '+r.error.message);
  OPENED=r.data.id;await loadHist();$('msg').textContent+=' Saved to the semester.'}
 $('saveUp').onclick=async()=>{const b=$('saveUp');if(b.disabled)return;b.disabled=true;try{await doSave()}finally{b.disabled=false}};
+
+// ---- arranging classes by drag and drop (admin only) ----
+function afterEdit(){renderTS();renderSC();renderTC();renderHR();renderEditBar()}
+function renderEditBar(){const b=$('editBar');
+ if(!S||!canArrange()){b.classList.add('hide');return}
+ b.classList.remove('hide');const n=EDITS.length,dirty=JSON.stringify(EDITS)!==JSON.stringify(SAVED);
+ $('editMsg').innerHTML='<b>Arrange mode (admin)</b>: in <i>Schedules</i>, drag a class onto another class to swap their times. In <i>Teacher Schedules</i>, drag a class onto another teacher at the same time to hand it over. Green outline = allowed, red = not allowed. '+(n?`${n} change${n>1?'s':''}${dirty?', not saved yet':', saved'}.`:'No changes yet.');
+ $('undoBtn').disabled=!n;$('saveEdits').disabled=!dirty;$('discardEdits').disabled=!dirty}
+async function tryMove(mv){
+ if(!canArrange())return;
+ const r=checkMove(S,mv);
+ if(!r.ok){alert("This class can't go there:\n- "+r.reasons.join('\n- '));return}
+ if(r.warnings.length&&!confirm(r.warnings.join('\n')+'\n\nMove it anyway?'))return;
+ applyMove(S,mv);EDITS.push(mv);afterEdit()}
+const mvOf=td=>td.dataset.g!==undefined?{kind:'student',g:td.dataset.g,at:{day:DAYS[+td.dataset.d],time:td.dataset.t}}:{kind:'teacher',bi:+td.dataset.b,at:{day:DAYS[+td.dataset.d],time:td.dataset.t}};
+const buildMove=(a,b)=>a.kind!==b.kind?null:a.kind==='student'?{kind:'student',g:a.g,toG:b.g,from:a.at,to:b.at}:{kind:'teacher',bi:a.bi,from:a.at,toBi:b.bi,to:b.at};
+['tcOut','scGrids'].forEach(id=>{const root=$(id);
+ const clear=()=>root.querySelectorAll('.dragging,.okdrop,.nodrop').forEach(x=>x.classList.remove('dragging','okdrop','nodrop'));
+ root.addEventListener('dragstart',e=>{const td=e.target.closest&&e.target.closest('td[draggable="true"]');if(!td||!canArrange())return;
+  DRAG=mvOf(td);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','class');td.classList.add('dragging')});
+ root.addEventListener('dragend',()=>{DRAG=null;OVER=null;clear()});
+ root.addEventListener('dragover',e=>{if(!DRAG||!canArrange())return;const td=e.target.closest('td[data-d]');if(!td)return;e.preventDefault();
+  if(td!==OVER){root.querySelectorAll('.okdrop,.nodrop').forEach(x=>x.classList.remove('okdrop','nodrop'));OVER=td;
+   const mv=buildMove(DRAG,mvOf(td)),r=mv?checkMove(S,mv):{ok:false};td.classList.add(r.ok?'okdrop':'nodrop')}});
+ root.addEventListener('drop',async e=>{e.preventDefault();const td=e.target.closest&&e.target.closest('td[data-d]'),src=DRAG;DRAG=null;OVER=null;clear();
+  if(!td||!src||!canArrange())return;const mv=buildMove(src,mvOf(td));if(mv)await tryMove(mv)})});
+$('undoBtn').onclick=()=>{if(!canArrange())return;const mv=EDITS.pop();if(!mv)return;applyMove(S,inverseMove(mv));afterEdit()};
+$('saveEdits').onclick=async()=>{
+ if(!canArrange())return;
+ if(!OPENED)return alert('Save this workbook to the semester first, then save your changes.');
+ const r=await sb.from('schedule_edits').upsert({upload_id:OPENED,edits:EDITS,updated_by:ME.id,updated_at:new Date().toISOString()});
+ if(r.error)return alert('Could not save the changes: '+r.error.message+(/schedule_edits/.test(r.error.message)?' Run add_schedule_edits.sql in Supabase first.':''));
+ SAVED=JSON.parse(JSON.stringify(EDITS));renderEditBar();$('msg').textContent+=' Changes saved.'};
+$('discardEdits').onclick=()=>{if(!canArrange()||!confirm('Discard the changes that are not saved yet?'))return;
+ if(CURU)openUpload(CURU);else if(CURBUF)loadBuf(CURBUF.buf,CURBUF.name)};
 $('expBtn').onclick=()=>{
  if(!S||!S.rep){alert('Open a workbook first.');return}
  const sem=SEMS.find(x=>x.id===CUR);
