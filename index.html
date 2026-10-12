@@ -90,7 +90,8 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .btn{height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--accink);font:inherit;font-weight:600;cursor:pointer}
 .eb{display:flex;gap:10px 12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:10px 14px;margin:0 0 18px;font-size:13.5px}
 .eb span{flex:1 1 360px}.eb .btn[disabled]{opacity:.45;cursor:default}
-.xl td.drag{cursor:grab}.xl td.dragging{opacity:.4}
+.xl td.drag{cursor:grab}
+.xl hr.stack{border:0;border-top:1px dashed #d33;margin:4px 0}.xl td.dragging{opacity:.4}
 .xl td.okdrop{outline:3px solid var(--kok);outline-offset:-3px}.xl td.nodrop{outline:3px solid var(--kred);outline-offset:-3px}
 .btn.danger{color:#b42318;border-color:#b42318}
 .btn.ghost{background:transparent;color:var(--acc)}
@@ -291,6 +292,7 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVE
   const cl=classify(wb),blocks=parseTeachers(wb,X,cl.teach),sp=parseStudents(wb,X,cl.stud);
   const cm=Object.values(sp.layout).map(L=>L.campus.match(/BTB\d+/i)).find(Boolean)||(name||'').match(/BTB\d+/i)||clean(((grid(wb.Sheets['TIMESHEET'])[9])||[])[1]).match(/BTB\d+/i);
   S={ts:parseTimesheet(wb),blocks,stud:sp.out,studX:sp.cross,layout:sp.layout,campus:cm?cm[0].toUpperCase():''};
+  S.base=snapshotCells(S);
   if($('mode').options&&$('mode').options[1])$('mode').options[1].disabled=!S.ts.hasGrid;
   if(!S.ts.hasGrid)$('mode').value='declared';
   $('scG').innerHTML='<option value="">All grades</option>'+Object.keys(sp.layout).map(g=>`<option>${esc(g)}</option>`).join('');
@@ -391,7 +393,7 @@ function xlTeacher(b){
   if(r.t==='lunch')return`<tr><td class="lt" colspan="6">${esc(r.label)}</td></tr>`;
   if(r.t==='foot')return'<tr>'+r.items.map(it=>`<td class="ft" colspan="${it.span}" style="text-align:${it.al};${it.bg?`background:${it.bg};color:#000;`:''}${it.bold?'font-weight:700':''}">${it.v==='__TOT__'?b.entries.length+' Hours/Week':esc(it.v)}</td>`).join('')+'</tr>';
   return`<tr><td class="tm" style="${r.tbg?`background:${r.tbg};color:#000`:''}">${esc(r.time)}</td>`+r.cells.map((c,d)=>{if(c.skip)return'';const cm=S.tconf&&S.tconf.get(b.name+'|'+DAYS[d]+'|'+r.time),dr=canArrange()&&c.v&&!r.brk,bi=S.blocks.indexOf(b);
-   return`<td class="${[c.x?'x':'',cm?'red':'',dr?'drag':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-b="${bi}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
+   return`<td class="${[c.x?'x':'',cm?'red':'',dr?'drag':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-b="${bi}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n-{3}\n/g,'<hr class="stack">').replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
  const cm=S.tconf?[...S.tconf.entries()].filter(([k])=>k.startsWith(b.name+'|')):[],ban=cm.length?`<tr><td class="cfl" colspan="6">Conflict (${cm.length} slot${cm.length>1?'s':''}): ${esc([...new Set(cm.map(x=>x[1]))].join(' '))}</td></tr>`:'';
  return`<div class="wrap" style="margin-bottom:18px"><table class="xl xt"><tr><td class="ttl" colspan="6">${esc(b.title)}</td></tr><tr><td class="lt" colspan="6">${esc(b.sy)}</td></tr><tr><td class="sess" colspan="5">${esc(b.instr)}</td><td class="sess" style="${b.campusBg?`background:${b.campusBg};color:#000`:''}">${esc(b.campus)}</td></tr>${ban}${body}</table></div>`}
 
@@ -447,6 +449,10 @@ function renderSC(){
    what:`${gl} has ${v.map(x=>x.disp+' ('+x.sub+')').join(' and ')} at the same time.`,
    where:v.map(x=>x.ref).join(', '),fix:`Keep one teacher for this slot. Free slots for ${v[1].disp}: ${freeOf(v[1].n,isLow(v[0].gr))}.`,
    cells:[labelOf(v[0].gr)+'|'+v[0].day+'|'+v[0].time],tk:v.map(x=>x.n+'|'+x.day+'|'+x.time)})}});
+ Object.entries(S.layout).forEach(([g,L])=>L.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{if(c.x&&clean(c.v)&&!/^break/i.test(clean(c.v))){const P=classLines(c.v);
+  cf.push({type:'Class in a crossed-out slot',day:DAYS[d],time:r.time,who:'Grade '+g,what:P[0]+' ('+P.slice(1).join(' ')+') is in a slot that is crossed out (not used) for Grade '+g+'.',where:c.ref||'',fix:'Move the class to a slot that is not crossed out.',cells:[g+'|'+DAYS[d]+'|'+r.time],tk:[]})}})}));
+ S.blocks.forEach(b=>b.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{if(c.x&&clean(c.v)&&!/^break/i.test(clean(c.v))){
+  cf.push({type:'Class on a slot the teacher has crossed out',day:DAYS[d],time:r.time,who:b.display,what:b.display+' has a class on '+DAYS[d]+' at '+r.time+', a slot that is crossed out (busy).',where:c.ref||'',fix:'Move the class to a slot that is not crossed out.',cells:[],tk:[b.name+'|'+DAYS[d]+'|'+r.time]})}})}));
  cf.forEach(c=>c.cells.forEach(k=>{CS[k]={cls:'red',st:'Conflict: '+c.what,lab:'Conflict'}}));
  rows.forEach(r=>{const c=CS[r.g+'|'+r.day+'|'+r.time];if(c&&c.lab==='Conflict'){r.cls='red';r.st=c.st}});
  S.rep=S.rep||{};S.rep.sc=rows.map(r=>({grade:r.g,day:r.day,time:r.time,subject:r.sub,teacher:r.t,result:r.st}));
@@ -505,28 +511,45 @@ function buildReport(S,meta){
 /*REPORT-END*/
 
 /*EDIT-START*/
-// Moving classes by drag and drop. Pure functions: they change the parsed schedule S and nothing else.
+// Moving classes by drag and drop. A class can be dropped on ANY class period. Clashes are never refused: they are shown in red.
+// Class schedule: dropping on a slot swaps the two classes. Teacher schedule: the class moves to that teacher's cell; if the cell is
+// already used the two classes are stacked in the cell (shown separated by a line) and highlighted as a conflict.
+// Pure functions: they change the parsed schedule S and nothing else.
+const SEP='\n---\n';
 function cellAt(rows,day,time){const d=DAYS.indexOf(day),r=rows.find(x=>x.t==='row'&&x.time===time);return r&&d>=0?{row:r,cell:r.cells[d]}:null}
 const classLines=v=>clean(v).split('\n').map(clean).filter(Boolean);
-const isClass=a=>!!a&&!!clean(a.cell.v)&&!/^break/i.test(clean(a.cell.v))&&!a.row.brk&&!a.cell.skip;
+const blocksOf=v=>clean(v)?String(v).split(/\n-{3}\n/).map(clean).filter(Boolean):[];
+const isSlot=a=>!!a&&!a.row.brk&&!a.cell.skip;
+const isClass=a=>isSlot(a)&&!!clean(a.cell.v)&&!/^break/i.test(clean(a.cell.v));
 const sameShape=(a,b)=>(a.cs||0)===(b.cs||0)&&(a.rs||0)===(b.rs||0);
 const lowGrade=g=>/^[1-3](?!\d)/.test(nGrade(g));
 const gradeLabel=(S,g)=>Object.keys(S.layout).find(k=>code(k)===code(g));
 const mineCampus=(S,c)=>!c||!S.campus||clean(c).toUpperCase().indexOf(S.campus.toUpperCase())>=0;
+function takeBlock(cell,subject,grade,k){const B=blocksOf(cell.v);
+ const i=subject==null?(k||0):B.findIndex(x=>{const L=classLines(x);return nSub(L[0])===nSub(subject)&&code(L[1]||'')===code(grade)});
+ if(i<0||i>=B.length)return null;const t=B.splice(i,1)[0];cell.v=B.join(SEP);return t}
+const putBlock=(cell,text)=>{cell.v=[...blocksOf(cell.v),text].join(SEP)};
+const swapText=(a,b)=>{const v=a.v,g=a.bg;a.v=b.v;a.bg=b.bg;b.v=v;b.bg=g};
+function snapshotCells(S){const out=[],add=c=>out.push({c,v:c.v,bg:c.bg});
+ Object.values(S.layout).forEach(L=>L.rows.forEach(r=>{if(r.t==='row')r.cells.forEach(add)}));
+ S.blocks.forEach(b=>b.rows.forEach(r=>{if(r.t==='row')r.cells.forEach(add)}));return out}
 function rebuildAll(S){
- S.blocks.forEach(b=>{b.entries=[];b.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{const v=clean(c.v);if(!v||/^break/i.test(v)||c.skip)return;
-  const L=classLines(v);b.entries.push({day:DAYS[d],time:r.time,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:c.ref})})})});
+ S.blocks.forEach(b=>{b.entries=[];b.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{if(c.skip)return;
+  blocksOf(c.v).forEach(v=>{if(/^break/i.test(v))return;const L=classLines(v);b.entries.push({day:DAYS[d],time:r.time,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:c.ref})})})})});
  S.stud=[];Object.entries(S.layout).forEach(([g,L])=>L.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{const v=clean(c.v);if(!v||/^break/i.test(v)||c.skip)return;
   const P=classLines(v);S.stud.push({grade:g,day:DAYS[d],time:r.time,subject:P[0],teacher:P.slice(1).join(' '),ref:c.ref})})}))}
-function teacherBusy(S,name,day,time,skipBi){const out=[];S.blocks.forEach((b,bi)=>{if(b.name!==name||bi===skipBi)return;const at=cellAt(b.rows,day,time);if(!at)return;
- if(at.cell.x)out.push('is busy (crossed out) on '+day+' at '+time);else if(clean(at.cell.v))out.push('already has a class on '+day+' at '+time)});return out}
-function teacherBlockOf(S,name,subject,grade,day,time){for(let i=0;i<S.blocks.length;i++){const b=S.blocks[i];if(b.name!==name)continue;
- if(b.entries.some(e=>e.day===day&&e.time===time&&nSub(e.subject)===nSub(subject)&&code(e.grade)===code(grade)))return i}return -1}
+// where does this class live in the teacher sheets?  returns {b, cell} or null
+function findEntry(S,name,subject,grade,slot){
+ for(const b of S.blocks){if(b.name!==name)continue;const at=cellAt(b.rows,slot.day,slot.time);if(!at)continue;
+  if(blocksOf(at.cell.v).some(x=>{const L=classLines(x);return nSub(L[0])===nSub(subject)&&code(L[1]||'')===code(grade)}))return{b,cell:at.cell,subject,grade}}
+ return null}
+function moveEntry(S,e,slot){const dst=cellAt(e.b.rows,slot.day,slot.time);if(!isSlot(dst))return;const t=takeBlock(e.cell,e.subject,e.grade);if(t!=null)putBlock(dst.cell,t)}
 function ruleWarnings(S,grade,time){const w=[];
  if((S.blocked||[]).includes(time))w.push(time+' is a blocked session.');
  if(S.noLow&&lowGrade(grade)&&/^11:00.*AM/i.test(time))w.push('Grade 1-3 classes should not be at '+time+'.');return w}
-// mv = {kind:'student', g:<class label>, from:{day,time}, to:{day,time}}     drop on a class = swap the two, drop on an empty slot = move
-//    | {kind:'teacher', bi:<teacher sheet index>, from:{day,time}, toBi:<teacher sheet index>, to:{day,time}}   same slot + other teacher = hand the class over
+// mv = {kind:'student', g:<class label>, from:{day,time}, to:{day,time}}
+//    | {kind:'teacher', bi:<teacher sheet index>, from:{day,time}, toBi:<teacher sheet index>, to:{day,time}, k:<which class in a stacked cell>}
+// checkMove only refuses what is impossible; "warnings" are notes shown after the move.
 function checkMove(S,mv){
  const out={ok:false,reasons:[],warnings:[]},R=m=>{out.reasons.push(m)},f=mv.from,t=mv.to;
  if(!S||!f||!t){R('Nothing is loaded.');return out}
@@ -536,70 +559,55 @@ function checkMove(S,mv){
   if(f.day===t.day&&f.time===t.time){R('That is the same slot.');return out}
   const A=cellAt(L.rows,f.day,f.time),B=cellAt(L.rows,t.day,t.time);
   if(!isClass(A)){R('There is no class to move here.');return out}
-  if(!B||B.row.brk||B.cell.skip){R('That is not a class period.');return out}
-  if(B.cell.x){R('That slot is crossed out (not used).');return out}
+  if(!isSlot(B)){R('That is not a class period.');return out}
   if(!sameShape(A.cell,B.cell))R('That slot has a different length.');
-  const swapping=isClass(B),P=classLines(A.cell.v),Q=swapping?classLines(B.cell.v):null;
-  if(swapping&&clean(A.cell.v)===clean(B.cell.v)){R('Both slots have the same class, so nothing would change.');return out}
-  const t1=nName(P.slice(1).join(' ')),t2=swapping?nName(Q.slice(1).join(' ')):'',same=swapping&&!!t1&&t1===t2;
-  const bi1=t1?teacherBlockOf(S,t1,P[0],mv.g,f.day,f.time):-1,bi2=swapping&&t2?teacherBlockOf(S,t2,Q[0],mv.g,t.day,t.time):-1;
-  // each teacher must be free at the new time; the only cell ignored is the one of the class that is leaving that slot
-  if(t1)teacherBusy(S,t1,t.day,t.time,same?bi2:-1).forEach(x=>R(P.slice(1).join(' ')+' '+x+'.'));
-  if(swapping&&t2)teacherBusy(S,t2,f.day,f.time,same?bi1:-1).forEach(x=>R(Q.slice(1).join(' ')+' '+x+'.'));
-  [bi1,bi2].forEach(bi=>{if(bi<0)return;const Bk=S.blocks[bi],x=cellAt(Bk.rows,f.day,f.time),y=cellAt(Bk.rows,t.day,t.time);
-   if(!x||!y||y.row.brk||y.cell.skip||!sameShape(x.cell,y.cell))R('The teacher sheet of '+Bk.display+' has no matching period at that time.')});
-  if(t1&&bi1<0&&P.length>1)out.warnings.push('The teacher schedule of '+P.slice(1).join(' ')+' has no matching class, so only the class schedule will change.');
-  if(swapping&&t2&&bi2<0&&Q.length>1)out.warnings.push('The teacher schedule of '+Q.slice(1).join(' ')+' has no matching class, so only the class schedule will change.');
-  ruleWarnings(S,mv.g,t.time).forEach(w=>out.warnings.push(w));if(swapping)ruleWarnings(S,mv.g,f.time).forEach(w=>out.warnings.push(w));
+  if(isClass(B)&&clean(A.cell.v)===clean(B.cell.v))R('Both slots have the same class, so nothing would change.');
+  ruleWarnings(S,mv.g,t.time).forEach(w=>out.warnings.push(w));if(isClass(B))ruleWarnings(S,mv.g,f.time).forEach(w=>out.warnings.push(w));
  }else{
-  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj],sameSlot=f.day===t.day&&f.time===t.time;
+  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj];
   if(!B||!B2){R('Teacher not found.');return out}
-  if(mv.bi===bj&&sameSlot){R('That is the same slot.');return out}
+  if(mv.bi===bj&&f.day===t.day&&f.time===t.time){R('That is the same slot.');return out}
   const a=cellAt(B.rows,f.day,f.time),b=cellAt(B2.rows,t.day,t.time);
   if(!isClass(a)){R('There is no class to move here.');return out}
-  if(!b||b.row.brk||b.cell.skip){R('That is not a class period.');return out}
+  if(!isSlot(b)){R('That is not a class period.');return out}
   if(!sameShape(a.cell,b.cell))R('That slot has a different length.');
-  teacherBusy(S,B2.name,t.day,t.time).forEach(x=>R(B2.display+' '+x+'.'));
-  const P=classLines(a.cell.v),label=gradeLabel(S,P[1]||'');let linked=false;
-  if(label&&mineCampus(S,P[2])){const L=S.layout[label],x=cellAt(L.rows,f.day,f.time),y=cellAt(L.rows,t.day,t.time),XL=x&&classLines(x.cell.v);
-   if(isClass(x)&&nName(XL.slice(1).join(' '))===B.name&&nSub(XL[0])===nSub(P[0])){linked=true;
-    if(!sameSlot){
-     if(!y||y.row.brk||y.cell.skip)R('Class '+label+' has no period at that time.');
-     else if(y.cell.x)R('Class '+label+': that slot is crossed out (not used).');
-     else if(clean(y.cell.v))R('Class '+label+' already has '+classLines(y.cell.v)[0]+' at that time. To change the time, swap the two classes in the Schedules tab.');
-     else if(!sameShape(x.cell,y.cell))R('Class '+label+': that slot has a different length.')}}}
-  if(!linked&&!/^homeroom/i.test(P[0]))out.warnings.push('This class is not in the class schedule, so only the teacher schedule will change.');
-  if(bj!==mv.bi&&B.subject!==B2.subject)out.warnings.push('This hands the class to a teacher from another subject sheet ('+B2.subject+').');
+  const P=classLines(blocksOf(a.cell.v)[mv.k||0]||'');
   ruleWarnings(S,P[1]||'',t.time).forEach(w=>out.warnings.push(w));
+  if(bj!==mv.bi&&B.subject!==B2.subject)out.warnings.push('The class went to a teacher from another subject sheet ('+B2.subject+').');
  }
  out.warnings=[...new Set(out.warnings)];out.ok=!out.reasons.length;return out}
 function applyMove(S,mv){
- const f=mv.from,t=mv.to,swap=(a,b)=>{const v=a.v,g=a.bg;a.v=b.v;a.bg=b.bg;b.v=v;b.bg=g};
+ const f=mv.from,t=mv.to;
  if(mv.kind==='student'){
-  const L=S.layout[mv.g],A=cellAt(L.rows,f.day,f.time),B=cellAt(L.rows,t.day,t.time),P=classLines(A.cell.v),swapping=isClass(B),Q=swapping?classLines(B.cell.v):null;
-  const t1=nName(P.slice(1).join(' ')),t2=swapping?nName(Q.slice(1).join(' ')):'';
-  const bi1=t1?teacherBlockOf(S,t1,P[0],mv.g,f.day,f.time):-1,bi2=swapping&&t2?teacherBlockOf(S,t2,Q[0],mv.g,t.day,t.time):-1;
-  swap(A.cell,B.cell);
-  new Set([bi1,bi2]).forEach(bi=>{if(bi<0)return;const Bk=S.blocks[bi],x=cellAt(Bk.rows,f.day,f.time),y=cellAt(Bk.rows,t.day,t.time);if(x&&y)swap(x.cell,y.cell)});
+  const L=S.layout[mv.g],A=cellAt(L.rows,f.day,f.time),B=cellAt(L.rows,t.day,t.time),P=classLines(A.cell.v),Y=isClass(B)?classLines(B.cell.v):null;
+  const t1=nName(P.slice(1).join(' ')),t2=Y?nName(Y.slice(1).join(' ')):'';
+  const e1=t1?findEntry(S,t1,P[0],mv.g,f):null,e2=Y&&t2?findEntry(S,t2,Y[0],mv.g,t):null;
+  swapText(A.cell,B.cell);
+  if(e1)moveEntry(S,e1,t);
+  if(e2)moveEntry(S,e2,f);
  }else{
-  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj];
-  const a=cellAt(B.rows,f.day,f.time).cell,b=cellAt(B2.rows,t.day,t.time).cell,P=classLines(a.v),label=gradeLabel(S,P[1]||'');
-  let sa=null,sb=null;
-  if(label&&mineCampus(S,P[2])){const x=cellAt(S.layout[label].rows,f.day,f.time),y=cellAt(S.layout[label].rows,t.day,t.time);
-   if(x&&y&&clean(x.cell.v)&&nName(classLines(x.cell.v).slice(1).join(' '))===B.name&&nSub(classLines(x.cell.v)[0])===nSub(P[0])){sa=x.cell;sb=y.cell}}
-  swap(a,b);
-  if(sa){if(sa!==sb)swap(sa,sb);if(bj!==mv.bi)sb.v=classLines(sb.v)[0]+'\n'+B2.full}
+  const bj=mv.toBi==null?mv.bi:mv.toBi,B=S.blocks[mv.bi],B2=S.blocks[bj],a=cellAt(B.rows,f.day,f.time).cell,b=cellAt(B2.rows,t.day,t.time).cell;
+  const text=blocksOf(a.v)[mv.k||0],P=classLines(text||''),label=gradeLabel(S,P[1]||''),sameSlot=f.day===t.day&&f.time===t.time;
+  let X=null;
+  if(label&&mineCampus(S,P[2])){const x=cellAt(S.layout[label].rows,f.day,f.time);
+   if(isClass(x)&&nName(classLines(x.cell.v).slice(1).join(' '))===B.name&&nSub(classLines(x.cell.v)[0])===nSub(P[0]))X=x.cell}
+  const taken=takeBlock(a,null,null,mv.k||0);if(taken!=null)putBlock(b,taken);
+  if(X){let at=X;
+   if(!sameSlot){const y=cellAt(S.layout[label].rows,t.day,t.time);
+    if(isSlot(y)){const Yp=isClass(y)?classLines(y.cell.v):null,e2=Yp?findEntry(S,nName(Yp.slice(1).join(' ')),Yp[0],label,t):null;
+     swapText(X,y.cell);at=y.cell;if(e2)moveEntry(S,e2,f)}}
+   if(bj!==mv.bi)at.v=classLines(at.v)[0]+'\n'+B2.full}
  }
  rebuildAll(S)}
-function inverseMove(mv){return mv.kind==='student'?{kind:'student',g:mv.g,from:mv.to,to:mv.from}
- :{kind:'teacher',bi:mv.toBi==null?mv.bi:mv.toBi,from:mv.to,toBi:mv.bi,to:mv.from}}
+function restoreCells(S){(S.base||[]).forEach(o=>{o.c.v=o.v;o.c.bg=o.bg});rebuildAll(S)}
+function replayEdits(S,edits){restoreCells(S);edits.forEach(mv=>applyMove(S,mv))}
 /*EDIT-END*/
 
 // ---- login, semesters, saved workbooks (Supabase) ----
 const SB_URL='https://zabpwylwyhechouljyva.supabase.co',SB_KEY='sb_publishable_Mv4Nz9jAoBc12APZcDSZTA_LRtYPGmh';
 const sb=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 const CAMPUSES=['BTB1','BTB2','BTB3'];
-let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null,CURU=null,CURBUF=null,EDITS=[],SAVED=[],DRAG=null,OVER=null;
+let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null,CURU=null,CURBUF=null,EDITS=[],SAVED=[],DRAG=null,OVER=null,LASTNOTE='';
 const canEdit=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
 const canArrange=()=>!!ME&&ME.role==='admin';
 async function boot(){
@@ -698,14 +706,17 @@ function afterEdit(){renderTS();renderSC();renderTC();renderHR();renderEditBar()
 function renderEditBar(){const b=$('editBar');
  if(!S||!canArrange()){b.classList.add('hide');return}
  b.classList.remove('hide');const n=EDITS.length,dirty=JSON.stringify(EDITS)!==JSON.stringify(SAVED);
- $('editMsg').innerHTML='<b>Arrange mode (admin)</b>: in <i>Schedules</i>, drag a class onto another class to swap their times. In <i>Teacher Schedules</i>, drag a class onto another teacher at the same time to hand it over. Green outline = allowed, red = not allowed. '+(n?`${n} change${n>1?'s':''}${dirty?', not saved yet':', saved'}.`:'No changes yet.');
+ $('editMsg').innerHTML='<b>Arrange mode (admin)</b>: drag any class onto any slot, in <i>Schedules</i> or <i>Teacher Schedules</i>. It is always placed; clashes with a teacher or a crossed-out slot are shown in red. '+(n?`${n} change${n>1?'s':''}${dirty?', not saved yet':', saved'}.`:'No changes yet.')+(LASTNOTE?`<br><b>${LASTNOTE}</b>`:'');
  $('undoBtn').disabled=!n;$('saveEdits').disabled=!dirty;$('discardEdits').disabled=!dirty}
 async function tryMove(mv){
  if(!canArrange())return;
  const r=checkMove(S,mv);
- if(!r.ok){alert("This class can't go there:\n- "+r.reasons.join('\n- '));return}
- if(r.warnings.length&&!confirm(r.warnings.join('\n')+'\n\nMove it anyway?'))return;
- applyMove(S,mv);EDITS.push(mv);afterEdit()}
+ if(!r.ok){alert("This class can't be moved there:\n- "+r.reasons.join('\n- '));return}
+ const before=(S.rep&&S.rep.cf?S.rep.cf.length:0);
+ applyMove(S,mv);EDITS.push(mv);afterEdit();
+ const d=S.rep.cf.length-before;
+ LASTNOTE=(d>0?'Moved. This created '+d+' new conflict'+(d>1?'s':'')+', shown in red.':d<0?'Moved. '+(-d)+' conflict'+(d<-1?'s':'')+' fixed.':'Moved. No new conflicts.')+(r.warnings.length?' Note: '+r.warnings.join(' '):'');
+ renderEditBar()}
 const mvOf=td=>td.dataset.g!==undefined?{kind:'student',g:td.dataset.g,at:{day:DAYS[+td.dataset.d],time:td.dataset.t}}:{kind:'teacher',bi:+td.dataset.b,at:{day:DAYS[+td.dataset.d],time:td.dataset.t}};
 const buildMove=(a,b)=>a.kind!==b.kind?null:a.kind==='student'?{kind:'student',g:a.g,toG:b.g,from:a.at,to:b.at}:{kind:'teacher',bi:a.bi,from:a.at,toBi:b.bi,to:b.at};
 ['tcOut','scGrids'].forEach(id=>{const root=$(id);
@@ -718,7 +729,7 @@ const buildMove=(a,b)=>a.kind!==b.kind?null:a.kind==='student'?{kind:'student',g
    const mv=buildMove(DRAG,mvOf(td)),r=mv?checkMove(S,mv):{ok:false};td.classList.add(r.ok?'okdrop':'nodrop')}});
  root.addEventListener('drop',async e=>{e.preventDefault();const td=e.target.closest&&e.target.closest('td[data-d]'),src=DRAG;DRAG=null;OVER=null;clear();
   if(!td||!src||!canArrange())return;const mv=buildMove(src,mvOf(td));if(mv)await tryMove(mv)})});
-$('undoBtn').onclick=()=>{if(!canArrange())return;const mv=EDITS.pop();if(!mv)return;applyMove(S,inverseMove(mv));afterEdit()};
+$('undoBtn').onclick=()=>{if(!canArrange()||!EDITS.length)return;EDITS.pop();replayEdits(S,EDITS);LASTNOTE='Last change undone.';afterEdit()};
 $('saveEdits').onclick=async()=>{
  if(!canArrange())return;
  if(!OPENED)return alert('Save this workbook to the semester first, then save your changes.');
