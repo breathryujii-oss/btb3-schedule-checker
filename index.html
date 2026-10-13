@@ -93,6 +93,16 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .xl td.drag{cursor:grab}
 .xl hr.stack{border:0;border-top:1px dashed #d33;margin:4px 0}.xl td.dragging{opacity:.4}
 .xl td.okdrop{outline:3px solid var(--kok);outline-offset:-3px}.xl td.nodrop{outline:3px solid var(--kred);outline-offset:-3px}
+.adgrid{display:grid;grid-template-columns:minmax(280px,440px) 1fr;gap:20px;margin:16px 0 8px}
+.adbox{border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;font-size:13.5px}
+.adbox label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
+.adbox input[type=text],.adbox select{width:100%}
+.pwrow{display:flex;gap:8px}.pwrow input{flex:1;min-width:0}
+.adnote{margin:12px 0 0;padding:11px 16px;border:1px solid var(--line);border-left:4px solid var(--kok);border-radius:8px;font-size:13.5px}
+.adnote.err{border-left-color:var(--kred)}
+#adUsers:has(table){border:1px solid var(--line);border-radius:8px}
+#adUsers select{height:30px;font-size:13px}
+@media(max-width:860px){.adgrid{grid-template-columns:1fr}}
 .btn.danger{color:#b42318;border-color:#b42318}
 .btn.ghost{background:transparent;color:var(--acc)}
 .who{margin:auto 8px 0;display:grid;gap:2px;font-size:13px;color:#fff}.who small{color:var(--railink);margin-bottom:8px}
@@ -139,7 +149,7 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <div class="shell">
 <aside class="rail">
 <div class="brand"><span class="mark">B3</span><div><b>Schedule Checker</b><small id="sem">Upload a workbook</small></div></div>
-<nav class="tabs" id="tabs"><button data-t="ts" class="on" aria-current="page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Timesheets</button><button data-t="tc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Teacher Schedules</button><button data-t="sc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedules</button><button data-t="hr"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Homeroom</button></nav>
+<nav class="tabs" id="tabs"><button data-t="ts" class="on" aria-current="page"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Timesheets</button><button data-t="tc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>Teacher Schedules</button><button data-t="sc"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Schedules</button><button data-t="hr"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Homeroom</button><button data-t="ad" id="adTab" class="hide"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>Administrative</button></nav>
 <div class="who" id="who"></div>
 <p class="rail-note">Workbooks are stored privately in your school's Supabase project. Only signed-in staff can open them.</p>
 </aside>
@@ -169,6 +179,24 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <p class="lede">Homeroom periods are taken out of the teacher schedules and matched with the homeroom class in the TIMESHEET. Each class should have one homeroom teacher. Homeroom periods overlap class lessons by design, and they are not counted in the Timesheet hours.</p>
 <div class="bar"><label>Class <select id="hrG"></select></label><label><input type="checkbox" id="hrOnly"> Issues only</label></div>
 <div class="stats" id="hrStats"></div><div class="wrap" id="hrOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
+<section id="ad" class="panel hide"><h2>Administrative</h2>
+<p class="lede">Create staff accounts and choose what each person may do. Only administrators can see this tab.</p>
+<div class="adgrid">
+<div class="adbox"><h3 style="margin:0">Create a user</h3>
+<label>Username<input id="nuName" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="for example sophea"></label>
+<label>Full name (optional)<input id="nuFull" type="text" autocomplete="off"></label>
+<label>Role<select id="nuRole"><option value="viewer">Viewer: can only look</option><option value="registrar">Registrar: can also upload and save workbooks</option><option value="admin">Admin: everything, including this tab</option></select></label>
+<label>Password (at least 8 characters)<span class="pwrow"><input id="nuPass" type="text" autocomplete="off" spellcheck="false"><button id="nuGen" class="btn ghost" type="button">Generate</button></span></label>
+<button id="nuMake" class="btn" type="button">Create user</button>
+</div>
+<div class="adbox"><h3 style="margin:0">What each role can do</h3>
+<p style="margin:0"><b>Viewer</b>: opens the saved workbook of a semester and campus and sees every tab. Cannot change anything.</p>
+<p style="margin:0"><b>Registrar</b>: also chooses files, saves them to a semester, adds semesters and sees the saved list.</p>
+<p style="margin:0"><b>Admin</b>: also arranges the schedule by drag and drop, deletes saved workbooks and manages users here.</p>
+<p class="mut" style="margin:0;font-size:13px">The person signs in with the username and password you give them. Accounts can be disabled but not deleted, so saved work stays linked to a name.</p>
+</div></div>
+<div id="adMsg" class="adnote hide" aria-live="polite"></div>
+<h3>Users</h3><div class="wrap" id="adUsers"><p class="mut">Loading the users…</p></div></section>
 </main></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -316,7 +344,7 @@ document.getElementById('f').addEventListener('change',async e=>{const f=e.targe
 
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('#tabs button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-current',x===b?'page':'false')});
- ['ts','tc','sc','hr'].forEach(id=>$(id).classList.toggle('hide',id!==b.dataset.t))});
+ ['ts','tc','sc','hr','ad'].forEach(id=>$(id).classList.toggle('hide',id!==b.dataset.t));if(b.dataset.t==='ad'&&canAdmin())loadUsers()});
 ['mode','tsOnly'].forEach(id=>$(id).onchange=()=>S&&renderTS());
 $('subSel').onchange=$('tcQ').oninput=()=>S&&renderTC();$('scF').onchange=$('scG').onchange=()=>S&&renderSC();
 $('hrG').onchange=$('hrOnly').onchange=()=>S&&renderHR();
@@ -615,11 +643,11 @@ async function boot(){
  const {data}=await sb.auth.getSession();await onSession(data.session);
  sb.auth.onAuthStateChange((_e,sess)=>{onSession(sess)})}
 async function onSession(sess){
- if(!sess){ME=null;OPENED=null;$('auth').classList.remove('hide');$('who').innerHTML='';$('semBar').classList.add('hide');return}
+ if(!sess){ME=null;OPENED=null;$('auth').classList.remove('hide');$('who').innerHTML='';$('semBar').classList.add('hide');$('adTab').classList.add('hide');return}
  if(ME&&ME.id===sess.user.id)return;
  const {data}=await sb.from('profiles').select('full_name,role').eq('id',sess.user.id).single();
  ME={id:sess.user.id,email:sess.user.email,name:shortName((data&&data.full_name)||sess.user.email),role:(data&&data.role)||'viewer'};
- $('auth').classList.add('hide');$('semBar').classList.remove('hide');
+ $('auth').classList.add('hide');$('semBar').classList.remove('hide');$('adTab').classList.toggle('hide',ME.role!=='admin');
  $('who').innerHTML=`<b>${esc(ME.name)}</b><small>${esc(ME.role)}</small><button id="out" class="btn ghost">Sign out</button>`;
  $('out').onclick=()=>sb.auth.signOut();
  await loadSems()}
@@ -738,6 +766,82 @@ $('saveEdits').onclick=async()=>{
  SAVED=JSON.parse(JSON.stringify(EDITS));renderEditBar();$('msg').textContent+=' Changes saved.'};
 $('discardEdits').onclick=()=>{if(!canArrange()||!confirm('Discard the changes that are not saved yet?'))return;
  if(CURU)openUpload(CURU);else if(CURBUF)loadBuf(CURBUF.buf,CURBUF.name)};
+
+/*ADMIN-START*/
+// Rules for a new account (the server function applies the same rules again). Pure functions, tested.
+const ROLE_LIST=['viewer','registrar','admin'];
+function checkNewUser(u){
+ const e=[],name=String(u.username==null?'':u.username).trim(),pw=String(u.password==null?'':u.password);
+ if(!name)e.push('Enter a username.');
+ else if(name.indexOf('@')>=0)e.push('Use a short username, not an email address.');
+ else if(!loginEmail(name))e.push('The username may use letters a-z, numbers, dot, dash and underscore (no spaces).');
+ if(pw.length<8)e.push('The password needs at least 8 characters.');else if(pw.length>72)e.push('The password can have at most 72 characters.');
+ if(ROLE_LIST.indexOf(u.role)<0)e.push('Choose a role.');
+ return e}
+// A password that is easy to read out: no 0/O, 1/l/I. Always has a small letter, a capital and a digit. rnd(n) must return 0..n-1.
+function makePassword(len,rnd){
+ len=len||12;const L='abcdefghjkmnpqrstuvwxyz',U='ABCDEFGHJKMNPQRSTUVWXYZ',D='23456789',all=L+U+D,pick=s=>s[rnd(s.length)];
+ const out=[pick(L),pick(U),pick(D)];while(out.length<len)out.push(pick(all));
+ for(let i=out.length-1;i>0;i--){const j=rnd(i+1);const t=out[i];out[i]=out[j];out[j]=t}
+ return out.join('')}
+/*ADMIN-END*/
+const cryptoRnd=n=>{const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
+
+// ---- Administrative tab (admins only) ----
+const canAdmin=()=>!!ME&&ME.role==='admin';
+let USERS=[];
+const fmtDate=x=>{try{return new Date(x).toLocaleDateString()}catch(e){return ''}};
+function setAdMsg(html,isErr){const m=$('adMsg');m.innerHTML=html;m.className='adnote'+(isErr?' err':'')}
+async function adminCall(body){
+ const r=await sb.functions.invoke('admin-users',{body});
+ if(r.error){let msg=r.error.message||'The request failed.';
+  try{const res=r.error.context;
+   if(res&&res.status===404)msg='The admin-users function is not set up yet. Follow step 11 of the README to deploy it in Supabase.';
+   else if(res&&typeof res.json==='function'){const j=await res.json();if(j&&j.error)msg=j.error}
+   else if(r.error.name==='FunctionsFetchError')msg='Could not reach the admin-users function. Check that it is deployed in Supabase (step 11 of the README).'}catch(e){}
+  throw new Error(msg)}
+ if(r.data&&r.data.error)throw new Error(r.data.error);
+ return r.data}
+async function loadUsers(){
+ if(!canAdmin())return;
+ $('adUsers').innerHTML='<p class="mut">Loading the users…</p>';
+ try{const d=await adminCall({action:'list'});USERS=d.users||[];renderUsers()}
+ catch(err){$('adUsers').innerHTML='';setAdMsg(esc(err.message),true)}}
+function renderUsers(){
+ if(!USERS.length){$('adUsers').innerHTML='<p class="mut">No users yet.</p>';return}
+ $('adUsers').innerHTML='<table><tr><th>Username</th><th>Name</th><th>Role</th><th>Created</th><th>Last sign-in</th><th>Status</th><th></th></tr>'+USERS.map(u=>{const me=ME&&u.id===ME.id;
+  return`<tr><td><b>${esc(u.username)}</b>${me?' <span class="mut">(you)</span>':''}</td><td>${esc(u.full_name)}</td>`+
+  `<td><select data-role="${esc(u.id)}"${me?' disabled title="You cannot change your own role"':''}>${ROLE_LIST.map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('')}</select></td>`+
+  `<td>${esc(fmtDate(u.created_at))}</td><td>${esc(u.last_sign_in_at?fmtDate(u.last_sign_in_at):'never')}</td><td>${u.disabled?pill('red','Disabled'):pill('grn','Active')}</td>`+
+  `<td class="n"><button class="btn ghost" data-pw="${esc(u.id)}">Reset password</button>${me?'':` <button class="btn ghost danger" data-dis="${esc(u.id)}" data-to="${u.disabled?0:1}">${u.disabled?'Enable':'Disable'}</button>`}</td></tr>`}).join('')+'</table>'}
+$('nuGen').onclick=()=>{if(!canAdmin())return;$('nuPass').value=makePassword(12,cryptoRnd)};
+$('nuMake').onclick=async()=>{
+ if(!canAdmin())return;
+ const u={username:$('nuName').value.trim().toLowerCase(),password:$('nuPass').value,role:$('nuRole').value,full_name:$('nuFull').value.trim()},e=checkNewUser(u);
+ if(e.length){setAdMsg(esc(e.join(' ')),true);return}
+ const b=$('nuMake');b.disabled=true;
+ try{await adminCall({action:'create',username:u.username,password:u.password,role:u.role,full_name:u.full_name});
+  setAdMsg(`User created. Username: <b>${esc(u.username)}</b> &nbsp; Password: <b>${esc(u.password)}</b> &nbsp; Role: ${esc(u.role)}.<br>Give these to the person now. The password cannot be shown again.`);
+  $('nuName').value='';$('nuFull').value='';$('nuPass').value='';await loadUsers()}
+ catch(err){setAdMsg(esc(err.message),true)}
+ finally{b.disabled=false}};
+$('adUsers').addEventListener('change',async e=>{
+ const sel=e.target.closest&&e.target.closest('select[data-role]');if(!sel||!canAdmin())return;
+ const u=USERS.find(x=>x.id===sel.dataset.role);if(!u)return;
+ try{await adminCall({action:'set_role',id:u.id,role:sel.value});u.role=sel.value;setAdMsg(`<b>${esc(u.username)}</b> is now a ${esc(sel.value)}.`)}
+ catch(err){sel.value=u.role;setAdMsg(esc(err.message),true)}});
+$('adUsers').addEventListener('click',async e=>{
+ if(!canAdmin())return;
+ const pw=e.target.closest&&e.target.closest('button[data-pw]'),dis=e.target.closest&&e.target.closest('button[data-dis]');
+ if(pw){const u=USERS.find(x=>x.id===pw.dataset.pw);if(!u)return;
+  const typed=prompt('New password for '+u.username+' (at least 8 characters).\nLeave empty to make one for you.');if(typed===null)return;
+  const np=typed.trim()||makePassword(12,cryptoRnd);
+  try{await adminCall({action:'reset_password',id:u.id,password:np});setAdMsg(`New password for <b>${esc(u.username)}</b>: <b>${esc(np)}</b>.<br>Give it to the person now. It cannot be shown again.`)}
+  catch(err){setAdMsg(esc(err.message),true)}}
+ if(dis){const u=USERS.find(x=>x.id===dis.dataset.dis);if(!u)return;const off=dis.dataset.to==='1';
+  if(off&&!confirm('Disable '+u.username+'? They will not be able to sign in until you enable the account again.'))return;
+  try{await adminCall({action:'set_disabled',id:u.id,disabled:off});await loadUsers();setAdMsg(`<b>${esc(u.username)}</b> is now ${off?'disabled':'active'}.`)}
+  catch(err){setAdMsg(esc(err.message),true)}}});
 $('expBtn').onclick=()=>{
  if(!S||!S.rep){alert('Open a workbook first.');return}
  const sem=SEMS.find(x=>x.id===CUR);
