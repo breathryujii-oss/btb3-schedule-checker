@@ -98,6 +98,10 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .adbox label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
 .adbox input[type=text],.adbox select{width:100%}
 .pwrow{display:flex;gap:8px}.pwrow input{flex:1;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips .chipc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 12px;font-weight:600;font-size:13px}
+.chips .chipc button{all:unset;cursor:pointer;color:var(--mut);padding:0 6px;border-radius:50%;line-height:1.3}
+.chips .chipc button:hover{color:#b42318;background:var(--bg)}
 .adnote{margin:12px 0 0;padding:11px 16px;border:1px solid var(--line);border-left:4px solid var(--kok);border-radius:8px;font-size:13.5px}
 .adnote.err{border-left-color:var(--kred)}
 #adUsers:has(table){border:1px solid var(--line);border-radius:8px}
@@ -195,6 +199,11 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <p style="margin:0"><b>Admin</b>: also arranges the schedule by drag and drop, deletes saved workbooks and manages users here.</p>
 <p class="mut" style="margin:0;font-size:13px">The person signs in with the username and password you give them. Accounts can be disabled but not deleted, so saved work stays linked to a name.</p>
 </div></div>
+<div class="adbox" style="margin-top:20px"><h3 style="margin:0">Campuses</h3>
+<p class="mut" style="margin:0">These are the choices in the Campus box at the top of every page. Each campus keeps its own saved workbook inside a semester. The campus name is read from the workbook (for example "CKD Campus" or a file name like 11_CKD_...).</p>
+<div id="campList" class="chips"></div>
+<label>New campus<span class="pwrow"><input id="ncName" type="text" autocomplete="off" spellcheck="false" placeholder="for example CKD"><button id="ncAdd" class="btn" type="button">Add campus</button></span></label>
+</div>
 <div id="adMsg" class="adnote hide" aria-live="polite"></div>
 <h3>Users</h3><div class="wrap" id="adUsers"><p class="mut">Loading the users…</p></div></section>
 </main></div>
@@ -318,8 +327,8 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVE
   if(!wb.Sheets['TIMESHEET'])throw new Error('No TIMESHEET sheet found');
   let X={};try{X=await crossedCells(buf)}catch(e){console.warn('crossed cells not read',e)}
   const cl=classify(wb),blocks=parseTeachers(wb,X,cl.teach),sp=parseStudents(wb,X,cl.stud);
-  const cm=Object.values(sp.layout).map(L=>L.campus.match(/BTB\d+/i)).find(Boolean)||(name||'').match(/BTB\d+/i)||clean(((grid(wb.Sheets['TIMESHEET'])[9])||[])[1]).match(/BTB\d+/i);
-  S={ts:parseTimesheet(wb),blocks,stud:sp.out,studX:sp.cross,layout:sp.layout,campus:cm?cm[0].toUpperCase():''};
+  const cmName=campusName(Object.values(sp.layout).map(L=>L.campus).find(c=>/campus/i.test(c)),name,clean(((grid(wb.Sheets['TIMESHEET'])[9])||[])[1]));
+  S={ts:parseTimesheet(wb),blocks,stud:sp.out,studX:sp.cross,layout:sp.layout,campus:cmName};
   S.base=snapshotCells(S);
   if($('mode').options&&$('mode').options[1])$('mode').options[1].disabled=!S.ts.hasGrid;
   if(!S.ts.hasGrid)$('mode').value='declared';
@@ -334,6 +343,7 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVE
   const ys=Object.entries(yrs).sort((a,b)=>b[1].length-a[1].length);
   if(ys.length>1)$('msg').textContent+=' Check: '+ys.slice(1).map(([k,v])=>`class ${v.join(', ')} says ${k}`).join('; ')+' in its title.';
   if(S.campus&&CAMPUSES.includes(S.campus)&&$('campSel').value!==S.campus){$('campSel').value=S.campus;if(CUR)loadHist(true)}
+  if(S.campus&&!CAMPUSES.includes(S.campus))$('msg').textContent+=' Campus '+S.campus+' is not in the Campus list yet'+(canAdmin()?'. Add it in the Administrative tab.':'. Ask an administrator to add it.')
   const allT=[...new Set(Object.values(sp.layout).flatMap(L=>L.rows.filter(r=>r.t==='row'&&!r.brk).map(r=>r.time)))];
   S.blocked=allT.filter(t=>/^4:00.*PM/i.test(t));
   $('blkBar').innerHTML='<span>Blocked sessions (never suggested for fixes):</span>'+allT.map(t=>`<label><input type="checkbox" data-t="${esc(t)}"${S.blocked.includes(t)?' checked':''}>${esc(t)}</label>`).join('')+'<span style="flex:1 1 100%"></span><label><input type="checkbox" id="lowChk" checked>Grade 1\u20133 classes: never suggest 11:00 - 11:50 AM</label>';
@@ -634,7 +644,7 @@ function replayEdits(S,edits){restoreCells(S);edits.forEach(mv=>applyMove(S,mv))
 // ---- login, semesters, saved workbooks (Supabase) ----
 const SB_URL='https://zabpwylwyhechouljyva.supabase.co',SB_KEY='sb_publishable_Mv4Nz9jAoBc12APZcDSZTA_LRtYPGmh';
 const sb=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
-const CAMPUSES=['BTB1','BTB2','BTB3'];
+let CAMPUSES=['BTB1','BTB2','BTB3'],CAMP_ROWS=[],CAMP_DB=false;
 let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null,CURU=null,CURBUF=null,EDITS=[],SAVED=[],DRAG=null,OVER=null,LASTNOTE='';
 const canEdit=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
 const canArrange=()=>!!ME&&ME.role==='admin';
@@ -655,6 +665,7 @@ $('aIn').onclick=async()=>{if(!sb)return;const em=loginEmail($('aMail').value);i
  $('authMsg').textContent='Signing in…';const {error}=await sb.auth.signInWithPassword({email:em,password:$('aPass').value});if(error)$('authMsg').textContent=error.message;else $('authMsg').textContent='Signed in. Loading…'};
 $('aPass').addEventListener('keydown',e=>{if(e.key==='Enter')$('aIn').click()});
 async function loadSems(){
+ await loadCampuses();
  const {data}=await sb.from('semesters').select('*').order('academic_year',{ascending:false}).order('number',{ascending:false});
  SEMS=data||[];const keep=$('semSel').value;
  $('semSel').innerHTML=SEMS.length?SEMS.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join(''):'<option value="">No semesters yet</option>';
@@ -767,6 +778,32 @@ $('saveEdits').onclick=async()=>{
 $('discardEdits').onclick=()=>{if(!canArrange()||!confirm('Discard the changes that are not saved yet?'))return;
  if(CURU)openUpload(CURU);else if(CURBUF)loadBuf(CURBUF.buf,CURBUF.name)};
 
+/*CAMPUS-START*/
+// The campus list is kept in the database and edited by admins. These helpers are pure so they can be tested.
+const CAMPUS_RE=/^[A-Z0-9][A-Z0-9 _-]{0,19}$/;
+function checkCampus(raw,existing){
+ const n=String(raw==null?'':raw).trim().replace(/\s+/g,' ').toUpperCase();
+ if(!n)return{error:'Enter the campus name.'};
+ if(!CAMPUS_RE.test(n))return{error:'Use letters, numbers, spaces, dash or underscore (up to 20 characters, starting with a letter or number).'};
+ if((existing||[]).some(x=>String(x).toUpperCase()===n))return{error:n+' is already in the list.'};
+ return{name:n}}
+// Which campus is this workbook for? 1) the campus cell of the class sheets ("BTB1 Campus"), 2) the file name ("8_BTB1_11_SEP..."), 3) the Timesheet heading.
+function campusName(label,fileName,timesheetText){
+ const a=clean(label).replace(/\s*campus\s*$/i,'').trim();
+ if(a&&/^[A-Za-z0-9][A-Za-z0-9 _-]{0,19}$/.test(a))return a.toUpperCase();
+ const f=String(fileName||'').match(/^\d+[_\- ]+([A-Za-z][A-Za-z0-9]{1,14})[_\- ]/);if(f)return f[1].toUpperCase();
+ const t=clean(timesheetText).match(/\b([A-Za-z][A-Za-z0-9]{1,14})\s+Camp/i);return t?t[1].toUpperCase():''}
+async function addCampusRow(sb,name,order,userId){
+ const r=await sb.from('campuses').insert({name,sort_order:order,created_by:userId});
+ return r.error?{error:r.error.message}:{ok:true}}
+async function removeCampusRow(sb,name,all){
+ if((all||[]).length<=1)return{error:'Keep at least one campus.'};
+ const c=await sb.from('uploads').select('id',{count:'exact',head:true}).eq('campus',name);
+ if(c.error)return{error:c.error.message};
+ if(c.count>0)return{error:name+' has '+c.count+' saved workbook'+(c.count>1?'s':'')+'. Delete them first, or keep the campus.'};
+ const d=await sb.from('campuses').delete().eq('name',name);
+ return d.error?{error:d.error.message}:{ok:true}}
+/*CAMPUS-END*/
 /*ADMIN-START*/
 // Rules for a new account (the server function applies the same rules again). Pure functions, tested.
 const ROLE_LIST=['viewer','registrar','admin'];
@@ -842,6 +879,35 @@ $('adUsers').addEventListener('click',async e=>{
   if(off&&!confirm('Disable '+u.username+'? They will not be able to sign in until you enable the account again.'))return;
   try{await adminCall({action:'set_disabled',id:u.id,disabled:off});await loadUsers();setAdMsg(`<b>${esc(u.username)}</b> is now ${off?'disabled':'active'}.`)}
   catch(err){setAdMsg(esc(err.message),true)}}});
+
+// ---- campus list (loaded from the database, edited in the Administrative tab) ----
+async function loadCampuses(){
+ const r=await sb.from('campuses').select('name,sort_order').order('sort_order').order('name');
+ CAMP_DB=!r.error&&!!r.data&&r.data.length>0;
+ CAMP_ROWS=CAMP_DB?r.data:CAMPUSES.map((n,i)=>({name:n,sort_order:i+1}));
+ CAMPUSES=CAMP_ROWS.map(x=>x.name);
+ const cur=$('campSel').value;
+ $('campSel').innerHTML=CAMPUSES.map(n=>`<option>${esc(n)}</option>`).join('');
+ if(CAMPUSES.includes(cur))$('campSel').value=cur;
+ renderCampList()}
+function renderCampList(){
+ const box=$('campList');if(!box)return;
+ box.innerHTML=CAMPUSES.map(n=>`<span class="chipc">${esc(n)}${canAdmin()?` <button type="button" data-rmc="${esc(n)}" title="Remove ${esc(n)}" aria-label="Remove ${esc(n)}">&times;</button>`:''}</span>`).join('')+
+  (CAMP_DB?'':'<span class="mut" style="font-size:13px">The list is not saved in the database yet. Run add_campuses.sql in Supabase (README step 12), then reload.</span>')}
+$('ncAdd').onclick=async()=>{
+ if(!canAdmin())return;
+ const c=checkCampus($('ncName').value,CAMPUSES);if(c.error){setAdMsg(esc(c.error),true);return}
+ if(!CAMP_DB){setAdMsg('Run add_campuses.sql in Supabase first (README step 12), then reload this page and try again.',true);return}
+ const r=await addCampusRow(sb,c.name,CAMP_ROWS.reduce((m,x)=>Math.max(m,x.sort_order||0),0)+1,ME.id);
+ if(r.error){setAdMsg(esc(r.error),true);return}
+ $('ncName').value='';await loadCampuses();setAdMsg(`Campus <b>${esc(c.name)}</b> added. It is now in the Campus box.`)};
+$('campList').addEventListener('click',async e=>{
+ const b=e.target.closest&&e.target.closest('button[data-rmc]');if(!b||!canAdmin())return;
+ const name=b.dataset.rmc;if(!confirm('Remove campus '+name+' from the list?'))return;
+ const r=await removeCampusRow(sb,name,CAMPUSES);
+ if(r.error){setAdMsg(esc(r.error),true);return}
+ const cur=$('campSel').value;await loadCampuses();if($('campSel').value!==cur&&CUR){OPENED=null;loadHist(true)}
+ setAdMsg(`Campus <b>${esc(name)}</b> removed from the list.`)});
 $('expBtn').onclick=()=>{
  if(!S||!S.rep){alert('Open a workbook first.');return}
  const sem=SEMS.find(x=>x.id===CUR);
