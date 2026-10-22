@@ -90,7 +90,7 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .btn{height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--acc);background:var(--acc);color:var(--accink);font:inherit;font-weight:600;cursor:pointer}
 .eb{display:flex;gap:10px 12px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:10px 14px;margin:0 0 18px;font-size:13.5px}
 .eb span{flex:1 1 360px}.eb .btn[disabled]{opacity:.45;cursor:default}
-.xl td.drag{cursor:grab}
+.xl td.drag{cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .xl hr.stack{border:0;border-top:1px dashed #d33;margin:4px 0}.xl td.dragging{opacity:.4}
 .xl td.okdrop{outline:3px solid var(--kok);outline-offset:-3px}.xl td.nodrop{outline:3px solid var(--kred);outline-offset:-3px}
 .adgrid{display:grid;grid-template-columns:minmax(280px,440px) 1fr;gap:20px;margin:16px 0 8px}
@@ -102,6 +102,7 @@ table:not(.xl) tr:hover td{box-shadow:inset 0 0 0 999px rgba(16,35,63,.045)}
 .chips .chipc{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 12px;font-weight:600;font-size:13px}
 .chips .chipc button{all:unset;cursor:pointer;color:var(--mut);padding:0 6px;border-radius:50%;line-height:1.3}
 .chips .chipc button:hover{color:#b42318;background:var(--bg)}
+.hist td{vertical-align:top}.hist .when{white-space:nowrap;color:var(--mut)}
 .adnote{margin:12px 0 0;padding:11px 16px;border:1px solid var(--line);border-left:4px solid var(--kok);border-radius:8px;font-size:13.5px}
 .adnote.err{border-left-color:var(--kred)}
 #adUsers:has(table){border:1px solid var(--line);border-radius:8px}
@@ -150,6 +151,11 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <label>Username<input id="aMail" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
 <label>Password<input id="aPass" type="password" autocomplete="current-password"></label>
 <div class="authbtn"><button id="aIn" class="btn">Sign in</button></div></div></div>
+<div id="pwBox" class="auth hide"><div class="authbox"><h2>Change your password</h2><p class="lede" id="pwMsg">Enter your current password, then a new one.</p>
+<label>Current password<input id="pwCur" type="password" autocomplete="current-password"></label>
+<label>New password (8 characters or more)<input id="pwNew" type="password" autocomplete="new-password"></label>
+<label>New password again<input id="pwNew2" type="password" autocomplete="new-password"></label>
+<div class="authbtn"><button id="pwSave" class="btn" type="button">Save new password</button><button id="pwCancel" class="btn ghost" type="button">Close</button></div></div></div>
 <div class="shell">
 <aside class="rail">
 <div class="brand"><span class="mark">B3</span><div><b>Schedule Checker</b><small id="sem">Upload a workbook</small></div></div>
@@ -158,14 +164,14 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <p class="rail-note">Workbooks are stored privately in your school's Supabase project. Only signed-in staff can open them.</p>
 </aside>
 <main>
-<div class="wb" id="wb"><div><b>Workbook</b><span id="msg" class="mut">No file loaded. Drop an .xlsx here or choose one.</span></div><input type="file" id="f" accept=".xlsx,.xlsm"><button id="expBtn" class="btn ghost" title="Download all results as an Excel file">Download report (Excel)</button></div>
+<div class="wb" id="wb"><div><b>Workbook</b><span id="msg" class="mut">No file loaded. Drop an .xlsx here or choose one.</span></div><input type="file" id="f" accept=".xlsx,.xlsm"><button id="expBtn" class="btn ghost" title="Download all results as an Excel file">Download report (Excel)</button><button id="expWb" class="btn ghost hide" title="The original workbook with the arranged schedule written into it">Download arranged workbook</button></div>
 <div class="wb hide" id="semBar"><b>Semester</b><select id="semSel"></select><b>Campus</b><select id="campSel"><option>BTB1</option><option>BTB2</option><option>BTB3</option></select><button id="semNew" class="btn ghost hide">New semester</button><button id="saveUp" class="btn hide">Save this workbook to the semester</button></div>
 <div id="hist" style="margin:-8px 0 18px"></div>
 <div class="eb hide" id="editBar"><span id="editMsg"></span><button id="undoBtn" class="btn ghost">Undo last</button><button id="saveEdits" class="btn">Save changes</button><button id="discardEdits" class="btn ghost">Discard unsaved</button></div>
 <div class="ov" id="ov"></div>
 <section id="ts" class="panel"><h2>Timesheets</h2>
 <p class="lede">Teacher period hours (TIMESHEET) vs. total hours in the teacher's schedule, matched by teacher name. Mismatches are highlighted yellow. Homeroom periods are not counted here; they are listed in the Homeroom tab.</p>
-<div class="bar"><label>Period hours from <select id="mode"><option value="declared">Teaching hours/week (2025-2026 column)</option><option value="counted">Periods counted in timesheet grid</option></select></label>
+<div class="bar"><label>Period hours from <select id="mode"><option value="declared">Teaching hours/week</option><option value="counted">Periods counted in timesheet grid</option></select></label>
 <label><input type="checkbox" id="tsOnly"> Mismatches only</label></div>
 <div class="stats" id="tsStats"></div><div class="wrap" id="tsOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
 
@@ -205,7 +211,10 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <label>New campus<span class="pwrow"><input id="ncName" type="text" autocomplete="off" spellcheck="false" placeholder="for example CKD"><button id="ncAdd" class="btn" type="button">Add campus</button></span></label>
 </div>
 <div id="adMsg" class="adnote hide" aria-live="polite"></div>
-<h3>Users</h3><div class="wrap" id="adUsers"><p class="mut">Loading the users…</p></div></section>
+<h3>Users</h3><div class="wrap" id="adUsers"><p class="mut">Loading the users…</p></div>
+<h3>History</h3>
+<div class="bar"><label>Show <select id="hiF"><option value="">Everything</option><option value="schedule.">Schedule changes</option><option value="workbook.">Workbooks</option><option value="user.">User accounts</option><option value="campus.|semester.">Campuses and semesters</option><option value="password.">Passwords</option></select></label><button id="hiRef" class="btn ghost" type="button">Refresh</button></div>
+<div class="wrap" id="adHist"><p class="mut">Loading the history…</p></div></section>
 </main></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -237,17 +246,17 @@ async function crossedCells(buf){
   if(fg.getAttribute('rgb'))return'#'+fg.getAttribute('rgb').slice(-6);
   if(fg.getAttribute('theme')!==null&&fg.getAttribute('theme')!=='')return tint(pal[+fg.getAttribute('theme')]||'000000',+fg.getAttribute('tint')||0);return null});
  const fonts=[...st.getElementsByTagName('fonts')[0].children].map(f=>{const b=f.getElementsByTagName('b')[0];return !!b&&b.getAttribute('val')!=='0'});
- const xf=[...st.getElementsByTagName('cellXfs')[0].children].map(x=>({x:bord[+x.getAttribute('borderId')||0],bg:fills[+x.getAttribute('fillId')||0],b:fonts[+x.getAttribute('fontId')||0]}));
+ const xf=[...st.getElementsByTagName('cellXfs')[0].children].map(x=>({x:bord[+x.getAttribute('borderId')||0],bg:fills[+x.getAttribute('fillId')||0],b:fonts[+x.getAttribute('fontId')||0],fid:+x.getAttribute('fillId')||0}));
  const targets={};[...rel.getElementsByTagName('Relationship')].forEach(r=>targets[r.getAttribute('Id')]=r.getAttribute('Target'));
  const out={};
  for(const sh of wbx.getElementsByTagName('sheet')){
   const t=targets[sh.getAttribute('r:id')];if(!t)continue;
   const doc=await rd(t.startsWith('/')?t.slice(1):'xl/'+t);if(!doc)continue;
-  const m=new Map();[...doc.getElementsByTagName('c')].forEach(c=>{const i=xf[+c.getAttribute('s')||0];if(i&&(i.x||i.bg||i.b))m.set(c.getAttribute('r'),i)});
+  const m=new Map();[...doc.getElementsByTagName('c')].forEach(c=>{const sid=+c.getAttribute('s')||0,i=xf[sid];if(i)m.set(c.getAttribute('r'),{...i,s:sid})});
   out[sh.getAttribute('name')]=m}
  return out}
 
-const code=g=>nGrade(g).replace(/\s*\(.*\)/,'').trim();
+const code=g=>nGrade(g).replace(/\s*#\d+$/,'').replace(/\s*\(.*\)/,'').trim();
 function mergeInfo(ws){const cs={},rs={},cov=new Set();(ws['!merges']||[]).forEach(m=>{const k=m.s.r+'|'+m.s.c;cs[k]=m.e.c-m.s.c+1;rs[k]=m.e.r-m.s.r+1;
  for(let r=m.s.r;r<=m.e.r;r++)for(let c=m.s.c;c<=m.e.c;c++)if(r!==m.s.r||c!==m.s.c)cov.add(r+'|'+c)});return{cs,rs,cov}}
 function classify(wb){const stud=[],teach=[];
@@ -270,9 +279,9 @@ function parseTeachers(wb,X,list){const out=[];
    if(/^\d{1,2}:\d{2}/.test(b)){const cells=[];let brk=false;
     for(let d=0;d<5;d++){const v=clean(r[2+d]),i=inf(ri,2+d),K=ri+'|'+(2+d);
      if(i.x)cur.crossed.add(DAYS[d]+'|'+b);
-     cells.push({v,x:!!i.x,bg:i.bg,cs:mg[K]>1?mg[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)});
+     cells.push({v,x:!!i.x,bg:i.bg,fid:i.fid,sid:i.s,cs:mg[K]>1?mg[K]:0,rs:MI.rs[K]>1?MI.rs[K]:0,skip:MI.cov.has(K),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)});
      if(d===0&&/^break/i.test(v))brk=true;
-     if(v&&!/^break/i.test(v)){const L=v.split('\n').map(clean).filter(Boolean);cur.entries.push({day:DAYS[d],time:b,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
+     if(v&&!/^break/i.test(v)){blocksOf(v).forEach(bv=>{const L=bv.split('\n').map(clean).filter(Boolean);cur.entries.push({day:DAYS[d],time:b,subject:L[0],grade:L[1]||'',campus:L[2]||'',ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})})}}
     cur.rows.push({t:'row',time:b,tbg:inf(ri,1).bg,cells,brk});return}
    if(cur.rows.length){const items=[],tot=/^Total Hours/i.test(b);let c=1;
     while(c<=6){const v=tot&&c===2?'__TOT__':clean(r[c]),i=inf(ri,c);let span=mg[ri+'|'+c]||1;
@@ -293,14 +302,16 @@ function parseTimesheet(wb){const rows=grid(wb.Sheets['TIMESHEET']),out=[];let l
   if(name&&!/^name$/i.test(name)){last={row:i+1,id:clean(r[2]),name:nName(name),display:name,subject:clean(r[subC>=0?subC:6]),declared:Number(r[dc])||0,counted:cnt,
    hr:homeC>=0?clean(r[homeC]):'',phone:phoneC>=0?clean(r[phoneC]):'',status:statC>=0?clean(r[statC]):''};out.push(last)}
   else if(last&&cnt>0)last.counted+=cnt});
- out.hasGrid=out.length>0&&gridTotal/out.length>=3;return out}
+ out.hasGrid=out.length>0&&gridTotal/out.length>=3;
+ const yy=clean((rows[hi+1]||[])[dc]).match(/\d{4}/g);out.yearLabel=yy?(yy.length>1?yy[0]+'-'+yy[1]:yy[0]):'';return out}
 
-function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={};
+function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={},seenIn={};
  list.forEach(sn=>{let grade='',meta=null,title='';const xs=X[sn]||new Map(),MI=mergeInfo(wb.Sheets[sn]);
   grid(wb.Sheets[sn]).forEach((r,ri)=>{const b=clean(r[1]);
    if(/Class Schedule/i.test(b)){title=b;meta=null;grade='';return}
    const g=b.match(/Grade\s+(.+?)\s*\/\s*Room/i);
-   if(g){grade=g[1].trim();meta=layout[grade]={title,gradeLine:b.replace(/\s+/g,' '),session:'',campus:'',rows:[],notes:[]};return}
+   if(g){const lab=g[1].trim();let key=lab,n=1;while(layout[key]){n++;key=lab+' #'+n}
+    (seenIn[lab]=seenIn[lab]||[]).push(sn);grade=key;meta=layout[grade]={title,gradeLine:b.replace(/\s+/g,' '),session:'',campus:'',rows:[],notes:[]};return}
    if(!meta)return;
    if(!meta.rows.length&&b!=='Time'){let hit=false;
     if(/Session/i.test(b)){meta.session=b.replace(/\s+/g,' ');hit=true}
@@ -317,7 +328,7 @@ function parseStudents(wb,X,list){const out=[],cross=new Set(),layout={};
       out.push({grade,day:DAYS[d],time:b,subject:L[0],teacher:L.slice(1).join(' '),ref:sn+'!'+String.fromCharCode(67+d)+(ri+1)})}}
     meta.rows.push({t:'row',time:b,cells,brk});return}
    if(meta.rows.length){const f=r.slice(1,7).map(clean).find(v=>v);if(f)meta.notes.push(f)}
-  })});return{out,cross,layout}}
+  })});const dups={};Object.keys(seenIn).forEach(k=>{if(seenIn[k].length>1)dups[k]=seenIn[k]});return{out,cross,layout,dups}}
 
 const wb_=$('wb');['dragover','dragenter'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.add('drag')}));
 ['dragleave','drop'].forEach(ev=>wb_.addEventListener(ev,e=>{e.preventDefault();wb_.classList.remove('drag')}));
@@ -332,6 +343,7 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVE
   S.base=snapshotCells(S);
   if($('mode').options&&$('mode').options[1])$('mode').options[1].disabled=!S.ts.hasGrid;
   if(!S.ts.hasGrid)$('mode').value='declared';
+  if($('mode').options&&$('mode').options[0])$('mode').options[0].textContent='Teaching hours/week'+(S.ts.yearLabel?' ('+S.ts.yearLabel+' column)':' (latest year column)');
   $('scG').innerHTML='<option value="">All grades</option>'+Object.keys(sp.layout).map(g=>`<option>${esc(g)}</option>`).join('');
   $('msg').textContent=`${name}: ${S.ts.length} timesheet rows, ${blocks.length} teacher schedules, ${S.stud.length} student periods.`;
   const subs=[...new Set(blocks.map(b=>b.subject))];
@@ -341,6 +353,7 @@ async function loadBuf(buf,name){$('msg').textContent='Reading…';EDITS=[];SAVE
   $('sem').textContent=[S.campus,sm?'Semester '+sm[1]:'',ay?ay[1]+'\u2013'+ay[2]:''].filter(Boolean).join(', ')||'Workbook loaded';
   const yrs={};Object.entries(sp.layout).forEach(([g,L])=>{const m=L.title.match(/(\d{4})\s*-\s*(\d{4})/);if(m){const k=m[1]+'\u2013'+m[2];(yrs[k]=yrs[k]||[]).push(g)}});
   const ys=Object.entries(yrs).sort((a,b)=>b[1].length-a[1].length);
+  Object.entries(sp.dups||{}).forEach(([k,v])=>{$('msg').textContent+=' Note: class '+k+' appears '+v.length+' times in the workbook ('+v.join(', ')+'); every copy is kept as its own table.'});
   if(ys.length>1)$('msg').textContent+=' Check: '+ys.slice(1).map(([k,v])=>`class ${v.join(', ')} says ${k}`).join('; ')+' in its title.';
   if(S.campus&&CAMPUSES.includes(S.campus)&&$('campSel').value!==S.campus){$('campSel').value=S.campus;if(CUR)loadHist(true)}
   if(S.campus&&!CAMPUSES.includes(S.campus))$('msg').textContent+=' Campus '+S.campus+' is not in the Campus list yet'+(canAdmin()?'. Add it in the Administrative tab.':'. Ask an administrator to add it.')
@@ -354,7 +367,7 @@ document.getElementById('f').addEventListener('change',async e=>{const f=e.targe
 
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('#tabs button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-current',x===b?'page':'false')});
- ['ts','tc','sc','hr','ad'].forEach(id=>$(id).classList.toggle('hide',id!==b.dataset.t));if(b.dataset.t==='ad'&&canAdmin())loadUsers()});
+ ['ts','tc','sc','hr','ad'].forEach(id=>$(id).classList.toggle('hide',id!==b.dataset.t));if(b.dataset.t==='ad'&&canAdmin()){loadUsers();loadHistory()}});
 ['mode','tsOnly'].forEach(id=>$(id).onchange=()=>S&&renderTS());
 $('subSel').onchange=$('tcQ').oninput=()=>S&&renderTC();$('scF').onchange=$('scG').onchange=()=>S&&renderSC();
 $('hrG').onchange=$('hrOnly').onchange=()=>S&&renderHR();
@@ -364,7 +377,6 @@ const KIND={Match:'ok',Mismatch:'yel','Slot differs':'org','No schedule':'org','
 const stat=(l,v)=>`<div class="stat ${KIND[l]||''}"><b>${v}</b>${l}</div>`;
 
 function renderHR(){
- const code=g=>nGrade(g).replace(/\s*\(.*\)/,'').trim();
  const ck=c=>{const m=c.match(/^(\d+)(.*)$/);return m?m[1].padStart(3,'0')+m[2]:'999'+c};
  const labels={};Object.keys(S.layout).forEach(g=>labels[code(g)]=g);
  const tsBy={};S.ts.forEach(t=>{if(!tsBy[t.name])tsBy[t.name]=t});
@@ -431,7 +443,7 @@ function xlTeacher(b){
   if(r.t==='lunch')return`<tr><td class="lt" colspan="6">${esc(r.label)}</td></tr>`;
   if(r.t==='foot')return'<tr>'+r.items.map(it=>`<td class="ft" colspan="${it.span}" style="text-align:${it.al};${it.bg?`background:${it.bg};color:#000;`:''}${it.bold?'font-weight:700':''}">${it.v==='__TOT__'?b.entries.length+' Hours/Week':esc(it.v)}</td>`).join('')+'</tr>';
   return`<tr><td class="tm" style="${r.tbg?`background:${r.tbg};color:#000`:''}">${esc(r.time)}</td>`+r.cells.map((c,d)=>{if(c.skip)return'';const cm=S.tconf&&S.tconf.get(b.name+'|'+DAYS[d]+'|'+r.time),dr=canArrange()&&c.v&&!r.brk,bi=S.blocks.indexOf(b);
-   return`<td class="${[c.x?'x':'',cm?'red':'',dr?'drag':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-b="${bi}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n-{3}\n/g,'<hr class="stack">').replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
+   return`<td class="${[c.x?'x':'',cm?'red':'',dr?'drag':''].join(' ').trim()}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-b="${bi}" data-d="${d}" data-t="${esc(r.time)}"${dr&&!TOUCHY?' draggable="true"':''} title="${cm?esc(cm):''}" style="${c.bg?`background-color:${c.bg};color:#000`:''}">${esc(c.v).replace(/\n-{3}\n/g,'<hr class="stack">').replace(/\n/g,'<br>')}${cm?'<small>Conflict</small>':''}</td>`}).join('')+'</tr>'}).join('');
  const cm=S.tconf?[...S.tconf.entries()].filter(([k])=>k.startsWith(b.name+'|')):[],ban=cm.length?`<tr><td class="cfl" colspan="6">Conflict (${cm.length} slot${cm.length>1?'s':''}): ${esc([...new Set(cm.map(x=>x[1]))].join(' '))}</td></tr>`:'';
  return`<div class="wrap" style="margin-bottom:18px"><table class="xl xt"><tr><td class="ttl" colspan="6">${esc(b.title)}</td></tr><tr><td class="lt" colspan="6">${esc(b.sy)}</td></tr><tr><td class="sess" colspan="5">${esc(b.instr)}</td><td class="sess" style="${b.campusBg?`background:${b.campusBg};color:#000`:''}">${esc(b.campus)}</td></tr>${ban}${body}</table></div>`}
 
@@ -472,7 +484,7 @@ function renderSC(){
   if(ls.length===1)return`Move one class to a free slot for ${who}: ${freeOf(n,ls[0])}.`;
   return grades.map(g=>`Moving Grade ${clean(g).replace(/^Grade\s*/i,'')}: ${freeOf(n,isLow(g))}.`).join(' ')};
  const cf=[];
- Object.values(grp(St,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{const gs=[...new Set(v.map(x=>x.raw.grade))];
+ Object.values(grp(St,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{const gs=[...new Set(v.map(x=>code(x.raw.grade)))];
   if(gs.length>1){const t=v[0].raw.teacher;cf.push({type:'Teacher in two classes',day:v[0].raw.day,time:v[0].raw.time,who:t,
    what:`${t} is scheduled in ${v.map(x=>'Grade '+x.raw.grade+' ('+x.raw.subject+')').join(' and ')} at the same time.`,
    where:v.map(x=>x.raw.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.raw.grade),t),
@@ -511,7 +523,7 @@ function renderSC(){
     if(c.skip)return'';
     const k=g+'|'+DAYS[d]+'|'+r.time,st=CS[k],x=c.x,txt=esc(c.v).replace(/\n/g,'<br>');
     const dr=canArrange()&&c.v&&!r.brk,cl=[x?'x':'',st&&st.cls!=='grn'?st.cls:'',dr?'drag':''].filter(Boolean).join(' ');
-    return`<td class="${cl}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-g="${esc(g)}" data-d="${d}" data-t="${esc(r.time)}"${dr?' draggable="true"':''} title="${st&&st.cls!=='grn'?esc(st.st):''}">${txt}${st&&st.lab?`<small>${st.lab}</small>`:''}</td>`}).join('')+'</tr>'}).join('');
+    return`<td class="${cl}"${c.cs?` colspan="${c.cs}"`:''}${c.rs?` rowspan="${c.rs}"`:''} data-g="${esc(g)}" data-d="${d}" data-t="${esc(r.time)}"${dr&&!TOUCHY?' draggable="true"':''} title="${st&&st.cls!=='grn'?esc(st.st):''}">${txt}${st&&st.lab?`<small>${st.lab}</small>`:''}</td>`}).join('')+'</tr>'}).join('');
   return`<div class="wrap"><table class="xl"><tr><td class="ttl" colspan="6">${esc(L.title)}</td></tr><tr><td class="sess" colspan="6">${esc(L.gradeLine)}</td></tr><tr><td class="sess" colspan="5">${esc(L.session)}</td><td class="sess">${esc(L.campus)}</td></tr>`+body+L.notes.map(n=>`<tr><td class="ft" colspan="6">${esc(n)}</td></tr>`).join('')+'</table></div>'}).join('');
  $('scOut').innerHTML=list.length?`<table><tr><th>Grade</th><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Result</th></tr>`+
   list.map(r=>`<tr class="${r.cls==='grn'?'':r.cls}"><td>${esc(r.g)}</td><td>${r.day}</td><td>${esc(r.time)}</td><td>${esc(r.sub)}</td><td>${esc(r.t)}</td><td>${pill(r.cls,r.st)}</td></tr>`).join('')+'</table>':'<p class="mut">No issues found.</p>';renderOV()}
@@ -567,8 +579,8 @@ function takeBlock(cell,subject,grade,k){const B=blocksOf(cell.v);
  const i=subject==null?(k||0):B.findIndex(x=>{const L=classLines(x);return nSub(L[0])===nSub(subject)&&code(L[1]||'')===code(grade)});
  if(i<0||i>=B.length)return null;const t=B.splice(i,1)[0];cell.v=B.join(SEP);return t}
 const putBlock=(cell,text)=>{cell.v=[...blocksOf(cell.v),text].join(SEP)};
-const swapText=(a,b)=>{const v=a.v,g=a.bg;a.v=b.v;a.bg=b.bg;b.v=v;b.bg=g};
-function snapshotCells(S){const out=[],add=c=>out.push({c,v:c.v,bg:c.bg});
+const swapText=(a,b)=>{const v=a.v,g=a.bg,f=a.fid;a.v=b.v;a.bg=b.bg;a.fid=b.fid;b.v=v;b.bg=g;b.fid=f};
+function snapshotCells(S){const out=[],add=c=>out.push({c,v:c.v,bg:c.bg,fid:c.fid});
  Object.values(S.layout).forEach(L=>L.rows.forEach(r=>{if(r.t==='row')r.cells.forEach(add)}));
  S.blocks.forEach(b=>b.rows.forEach(r=>{if(r.t==='row')r.cells.forEach(add)}));return out}
 function rebuildAll(S){
@@ -581,7 +593,14 @@ function findEntry(S,name,subject,grade,slot){
  for(const b of S.blocks){if(b.name!==name)continue;const at=cellAt(b.rows,slot.day,slot.time);if(!at)continue;
   if(blocksOf(at.cell.v).some(x=>{const L=classLines(x);return nSub(L[0])===nSub(subject)&&code(L[1]||'')===code(grade)}))return{b,cell:at.cell,subject,grade}}
  return null}
-function moveEntry(S,e,slot){const dst=cellAt(e.b.rows,slot.day,slot.time);if(!isSlot(dst))return;const t=takeBlock(e.cell,e.subject,e.grade);if(t!=null)putBlock(dst.cell,t)}
+// moves one class from a cell to another. If the first cell is left empty and the second was empty, the two cells swap colours
+// (the class keeps its campus colour, the free slot keeps the free-slot colour).
+function relocate(src,dst,subject,grade,k){
+ const t=takeBlock(src,subject,grade,k);if(t==null)return null;
+ const wasEmpty=!clean(dst.v);putBlock(dst,t);
+ if(!clean(src.v)&&wasEmpty){const g=src.bg,f=src.fid;src.bg=dst.bg;src.fid=dst.fid;dst.bg=g;dst.fid=f}
+ return t}
+function moveEntry(S,e,slot){const dst=cellAt(e.b.rows,slot.day,slot.time);if(!isSlot(dst))return;relocate(e.cell,dst.cell,e.subject,e.grade)}
 function ruleWarnings(S,grade,time){const w=[];
  if((S.blocked||[]).includes(time))w.push(time+' is a blocked session.');
  if(S.noLow&&lowGrade(grade)&&/^11:00.*AM/i.test(time))w.push('Grade 1-3 classes should not be at '+time+'.');return w}
@@ -629,7 +648,7 @@ function applyMove(S,mv){
   let X=null;
   if(label&&mineCampus(S,P[2])){const x=cellAt(S.layout[label].rows,f.day,f.time);
    if(isClass(x)&&nName(classLines(x.cell.v).slice(1).join(' '))===B.name&&nSub(classLines(x.cell.v)[0])===nSub(P[0]))X=x.cell}
-  const taken=takeBlock(a,null,null,mv.k||0);if(taken!=null)putBlock(b,taken);
+  relocate(a,b,null,null,mv.k||0);
   if(X){let at=X;
    if(!sameSlot){const y=cellAt(S.layout[label].rows,t.day,t.time);
     if(isSlot(y)){const Yp=isClass(y)?classLines(y.cell.v):null,e2=Yp?findEntry(S,nName(Yp.slice(1).join(' ')),Yp[0],label,t):null;
@@ -637,7 +656,7 @@ function applyMove(S,mv){
    if(bj!==mv.bi)at.v=classLines(at.v)[0]+'\n'+B2.full}
  }
  rebuildAll(S)}
-function restoreCells(S){(S.base||[]).forEach(o=>{o.c.v=o.v;o.c.bg=o.bg});rebuildAll(S)}
+function restoreCells(S){(S.base||[]).forEach(o=>{o.c.v=o.v;o.c.bg=o.bg;o.c.fid=o.fid});rebuildAll(S)}
 function replayEdits(S,edits){restoreCells(S);edits.forEach(mv=>applyMove(S,mv))}
 /*EDIT-END*/
 
@@ -648,6 +667,7 @@ let CAMPUSES=['BTB1','BTB2','BTB3'],CAMP_ROWS=[],CAMP_DB=false;
 let ME=null,SEMS=[],CUR=null,LAST=null,OPENED=null,CURU=null,CURBUF=null,EDITS=[],SAVED=[],DRAG=null,OVER=null,LASTNOTE='';
 const canEdit=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
 const canArrange=()=>!!ME&&ME.role==='admin';
+const TOUCHY=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 async function boot(){
  if(!sb){$('authMsg').textContent='Could not load the sign-in library. Check your internet connection and reload.';return}
  const {data}=await sb.auth.getSession();await onSession(data.session);
@@ -658,7 +678,8 @@ async function onSession(sess){
  const {data}=await sb.from('profiles').select('full_name,role').eq('id',sess.user.id).single();
  ME={id:sess.user.id,email:sess.user.email,name:shortName((data&&data.full_name)||sess.user.email),role:(data&&data.role)||'viewer'};
  $('auth').classList.add('hide');$('semBar').classList.remove('hide');$('adTab').classList.toggle('hide',ME.role!=='admin');
- $('who').innerHTML=`<b>${esc(ME.name)}</b><small>${esc(ME.role)}</small><button id="out" class="btn ghost">Sign out</button>`;
+ $('who').innerHTML=`<b>${esc(ME.name)}</b><small>${esc(ME.role)}</small><button id="pwBtn" class="btn ghost" type="button">Change password</button> <button id="out" class="btn ghost">Sign out</button>`;
+ $('pwBtn').onclick=()=>openPw();
  $('out').onclick=()=>sb.auth.signOut();
  await loadSems()}
 $('aIn').onclick=async()=>{if(!sb)return;const em=loginEmail($('aMail').value);if(!em){$('authMsg').textContent='Enter your username (letters, numbers, dot, dash or underscore).';return}
@@ -678,7 +699,7 @@ $('semSel').onchange=()=>{CUR=$('semSel').value||null;OPENED=null;loadHist()};
 $('semNew').onclick=async()=>{const y=(prompt('Academic year, for example 2025-2026')||'').trim();if(!y)return;
  const n=+prompt('Semester number (1, 2 or 3)');if(![1,2,3].includes(n))return alert('Please use 1, 2 or 3.');
  const {error}=await sb.from('semesters').insert({academic_year:y,number:n,name:`Semester ${n}, ${y}`,created_by:ME.id});
- if(error)alert(error.message);else loadSems()};
+ if(error)alert(error.message);else{audit('semester.create','Semester '+n+', '+y);loadSems()}};
 /*DELETE-START*/
 // Deleting saved workbooks. Only admins see these buttons (the database also enforces it).
 const canDel=()=>!!ME&&ME.role==='admin';
@@ -688,6 +709,7 @@ async function deleteUploads(items){
  if(r.error){alert('Could not delete the files: '+r.error.message);return false}
  const d=await sb.from('uploads').delete().in('id',items.map(u=>u.id));
  if(d.error){alert('The files were removed but the list could not be updated: '+d.error.message);return false}
+ if(typeof audit==='function')audit('workbook.delete',items.map(u=>u.file_name).join(', '),{count:items.length});
  await loadHist(true);return true}
 async function delOne(u){
  if(!u||!canDel())return;
@@ -737,21 +759,23 @@ async function doSave(){
  await sb.from('uploads').update({is_active:false}).eq('semester_id',CUR).eq('campus',cmp).eq('is_active',true);
  r=await sb.from('uploads').insert({semester_id:CUR,campus:cmp,storage_path:path,file_name:LAST.name,uploaded_by:ME.id,summary:S?(S.kpi||{}):{}}).select('id').single();
  if(r.error)return alert('Could not record the upload: '+r.error.message);
- OPENED=r.data.id;await loadHist();$('msg').textContent+=' Saved to the semester.'}
+ OPENED=r.data.id;audit('workbook.save',LAST.name,{campus:cmp,semester:semName()});await loadHist();$('msg').textContent+=' Saved to the semester.'}
 $('saveUp').onclick=async()=>{const b=$('saveUp');if(b.disabled)return;b.disabled=true;try{await doSave()}finally{b.disabled=false}};
 
 // ---- arranging classes by drag and drop (admin only) ----
 function afterEdit(){renderTS();renderSC();renderTC();renderHR();renderEditBar()}
 function renderEditBar(){const b=$('editBar');
+ $('expWb').classList.toggle('hide',!(canEdit()&&S&&CURBUF&&changedCells(S).length>0));
  if(!S||!canArrange()){b.classList.add('hide');return}
  b.classList.remove('hide');const n=EDITS.length,dirty=JSON.stringify(EDITS)!==JSON.stringify(SAVED);
- $('editMsg').innerHTML='<b>Arrange mode (admin)</b>: drag any class onto any slot, in <i>Schedules</i> or <i>Teacher Schedules</i>. It is always placed; clashes with a teacher or a crossed-out slot are shown in red. '+(n?`${n} change${n>1?'s':''}${dirty?', not saved yet':', saved'}.`:'No changes yet.')+(LASTNOTE?`<br><b>${LASTNOTE}</b>`:'');
+ $('editMsg').innerHTML='<b>Arrange mode (admin)</b>: drag any class onto any slot, in <i>Schedules</i> or <i>Teacher Schedules</i>. It is always placed; clashes with a teacher or a crossed-out slot are shown in red. '+(TOUCHY?'On this device, press and hold a class for a moment, then drag it. ':'')+(n?`${n} change${n>1?'s':''}${dirty?', not saved yet':', saved'}.`:'No changes yet.')+(LASTNOTE?`<br><b>${LASTNOTE}</b>`:'');
  $('undoBtn').disabled=!n;$('saveEdits').disabled=!dirty;$('discardEdits').disabled=!dirty}
 async function tryMove(mv){
  if(!canArrange())return;
  const r=checkMove(S,mv);
  if(!r.ok){alert("This class can't be moved there:\n- "+r.reasons.join('\n- '));return}
  const before=(S.rep&&S.rep.cf?S.rep.cf.length:0);
+ mv.note=describeMove(S,mv);mv.by=ME.name;mv.at=new Date().toISOString();
  applyMove(S,mv);EDITS.push(mv);afterEdit();
  const d=S.rep.cf.length-before;
  LASTNOTE=(d>0?'Moved. This created '+d+' new conflict'+(d>1?'s':'')+', shown in red.':d<0?'Moved. '+(-d)+' conflict'+(d<-1?'s':'')+' fixed.':'Moved. No new conflicts.')+(r.warnings.length?' Note: '+r.warnings.join(' '):'');
@@ -768,16 +792,166 @@ const buildMove=(a,b)=>a.kind!==b.kind?null:a.kind==='student'?{kind:'student',g
    const mv=buildMove(DRAG,mvOf(td)),r=mv?checkMove(S,mv):{ok:false};td.classList.add(r.ok?'okdrop':'nodrop')}});
  root.addEventListener('drop',async e=>{e.preventDefault();const td=e.target.closest&&e.target.closest('td[data-d]'),src=DRAG;DRAG=null;OVER=null;clear();
   if(!td||!src||!canArrange())return;const mv=buildMove(src,mvOf(td));if(mv)await tryMove(mv)})});
+
+// finger dragging (phones and tablets)
+['tcOut','scGrids'].forEach(id=>{const root=$(id);
+ const clearHover=()=>root.querySelectorAll('.okdrop,.nodrop').forEach(x=>x.classList.remove('okdrop','nodrop'));
+ const clearPick=()=>root.querySelectorAll('.dragging').forEach(x=>x.classList.remove('dragging'));
+ const ctl=createTouchDrag({
+  enabled:()=>canArrange(),
+  cellAt:(x,y)=>{const el=document.elementFromPoint(x,y),td=el&&el.closest&&el.closest('td[data-d]');return td&&root.contains(td)?td:null},
+  setTimer:(f,ms)=>setTimeout(f,ms),clearTimer:t=>clearTimeout(t),
+  onPick:td=>{DRAG=mvOf(td);td.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(25)},
+  onHover:td=>{clearHover();if(td&&DRAG){const mv=buildMove(DRAG,mvOf(td)),r=mv?checkMove(S,mv):{ok:false};td.classList.add(r.ok?'okdrop':'nodrop')}},
+  onDrop:async(a,b)=>{const src=DRAG;DRAG=null;clearPick();clearHover();const mv=src&&buildMove(src,mvOf(b));if(mv)await tryMove(mv)},
+  onCancel:()=>{DRAG=null;clearPick();clearHover()},
+  scrollBy:dy=>window.scrollBy(0,dy),vh:()=>window.innerHeight});
+ root.addEventListener('touchstart',e=>{const t=e.touches[0],td=e.target.closest&&e.target.closest('td.drag');if(e.touches.length===1&&td)ctl.start(t.clientX,t.clientY,td);else ctl.cancel()},{passive:true});
+ root.addEventListener('touchmove',e=>{const t=e.touches[0];if(ctl.move(t.clientX,t.clientY))e.preventDefault()},{passive:false});
+ root.addEventListener('touchend',e=>{const t=e.changedTouches[0];if(ctl.end(t.clientX,t.clientY))e.preventDefault()});
+ root.addEventListener('touchcancel',()=>ctl.cancel());
+ root.addEventListener('contextmenu',e=>{if(ctl.active)e.preventDefault()})});
 $('undoBtn').onclick=()=>{if(!canArrange()||!EDITS.length)return;EDITS.pop();replayEdits(S,EDITS);LASTNOTE='Last change undone.';afterEdit()};
 $('saveEdits').onclick=async()=>{
  if(!canArrange())return;
  if(!OPENED)return alert('Save this workbook to the semester first, then save your changes.');
  const r=await sb.from('schedule_edits').upsert({upload_id:OPENED,edits:EDITS,updated_by:ME.id,updated_at:new Date().toISOString()});
  if(r.error)return alert('Could not save the changes: '+r.error.message+(/schedule_edits/.test(r.error.message)?' Run add_schedule_edits.sql in Supabase first.':''));
+ const ch=newMovesSince(SAVED,EDITS);audit('schedule.save',CURU?CURU.file_name:'',{campus:$('campSel').value,semester:semName(),total:EDITS.length,added:ch.added,removed:ch.removed});
  SAVED=JSON.parse(JSON.stringify(EDITS));renderEditBar();$('msg').textContent+=' Changes saved.'};
 $('discardEdits').onclick=()=>{if(!canArrange()||!confirm('Discard the changes that are not saved yet?'))return;
  if(CURU)openUpload(CURU);else if(CURBUF)loadBuf(CURBUF.buf,CURBUF.name)};
 
+/*EXPORT-START*/
+// A new copy of the ORIGINAL workbook with the arranged schedule written into it. The file is edited directly (not rebuilt), so colours,
+// crossed-out cells, merged cells, logos and every other sheet stay exactly as they were.
+const changedCells=S=>(S.base||[]).filter(o=>o.c.v!==o.v||o.c.fid!==o.fid);
+async function exportArranged(S,buf,deps){
+ const {JSZip,DOMParser,XMLSerializer}=deps;
+ const z=await JSZip.loadAsync(buf);
+ const parse=async p=>{const f=z.file(p);return f?new DOMParser().parseFromString(await f.async('string'),'application/xml'):null};
+ const ser=d=>{let x=new XMLSerializer().serializeToString(d);if(!/^\s*<\?xml/.test(x))x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+x;return x};
+ const wbx=await parse('xl/workbook.xml'),rel=await parse('xl/_rels/workbook.xml.rels'),st=await parse('xl/styles.xml');
+ const targets={};[...rel.getElementsByTagName('Relationship')].forEach(r=>targets[r.getAttribute('Id')]=r.getAttribute('Target'));
+ const paths={};[...wbx.getElementsByTagName('sheet')].forEach(sh=>{const t=targets[sh.getAttribute('r:id')];if(t)paths[sh.getAttribute('name')]=t.startsWith('/')?t.slice(1):'xl/'+t});
+ const changes=changedCells(S),bySheet={};
+ changes.forEach(o=>{const ref=o.c.ref||'',i=ref.lastIndexOf('!');if(i<0)return;(bySheet[ref.slice(0,i)]=bySheet[ref.slice(0,i)]||[]).push({addr:ref.slice(i+1),c:o.c})});
+ // a copy of a cell style with another fill (the colour travels with the class)
+ const xfs=st.getElementsByTagName('cellXfs')[0],list=()=>[...xfs.getElementsByTagName('xf')],clones={};
+ const styleFor=(sid,fid)=>{if(sid==null||fid==null)return sid;const key=sid+'|'+fid;if(key in clones)return clones[key];
+  const base=list()[sid];if(!base||(+base.getAttribute('fillId')||0)===fid){clones[key]=sid;return sid}
+  const n=base.cloneNode(true);n.setAttribute('fillId',String(fid));n.setAttribute('applyFill','1');xfs.appendChild(n);
+  const idx=list().length-1;xfs.setAttribute('count',String(idx+1));clones[key]=idx;return idx};
+ const colNum=a=>{let n=0;for(const ch of a.replace(/[0-9]/g,''))n=n*26+ch.charCodeAt(0)-64;return n};
+ let done=0;
+ for(const [sheet,list2] of Object.entries(bySheet)){
+  const path=paths[sheet];if(!path)continue;const doc=await parse(path);if(!doc)continue;
+  const ns=doc.documentElement.namespaceURI,sd=doc.getElementsByTagName('sheetData')[0];
+  for(const {addr,c} of list2){
+   const rowN=+addr.replace(/[A-Z]/g,'');
+   let row=[...sd.getElementsByTagName('row')].find(r=>+r.getAttribute('r')===rowN);
+   if(!row){row=doc.createElementNS(ns,'row');row.setAttribute('r',String(rowN));const after=[...sd.getElementsByTagName('row')].find(r=>+r.getAttribute('r')>rowN);after?sd.insertBefore(row,after):sd.appendChild(row)}
+   const cs=[...row.getElementsByTagName('c')];let el=cs.find(x=>x.getAttribute('r')===addr);
+   if(!el){el=doc.createElementNS(ns,'c');el.setAttribute('r',addr);const nx=cs.find(x=>colNum(x.getAttribute('r'))>colNum(addr));nx?row.insertBefore(el,nx):row.appendChild(el)}
+   while(el.firstChild)el.removeChild(el.firstChild);el.removeAttribute('t');
+   if(c.v){el.setAttribute('t','inlineStr');const is=doc.createElementNS(ns,'is'),t=doc.createElementNS(ns,'t');t.setAttribute('xml:space','preserve');t.appendChild(doc.createTextNode(c.v));is.appendChild(t);el.appendChild(is)}
+   const ns2=styleFor(c.sid,c.fid);if(ns2!=null)el.setAttribute('s',String(ns2));
+   done++}
+  z.file(path,ser(doc),{createFolders:false})}
+ z.file('xl/styles.xml',ser(st),{createFolders:false});
+ // make Excel recalculate the "Total Hours" formulas when the file is opened
+ let cp=wbx.getElementsByTagName('calcPr')[0];
+ if(!cp){cp=wbx.createElementNS(wbx.documentElement.namespaceURI,'calcPr');let ref=null;
+  for(const n of ['oleSize','customWorkbookViews','pivotCaches','smartTagPr','smartTagTypes','webPublishing','fileRecoveryPr','webPublishObjects','extLst']){ref=wbx.getElementsByTagName(n)[0];if(ref)break}
+  ref?wbx.documentElement.insertBefore(cp,ref):wbx.documentElement.appendChild(cp)}
+ cp.setAttribute('fullCalcOnLoad','1');z.file('xl/workbook.xml',ser(wbx),{createFolders:false});
+ const out=await z.generateAsync({type:'uint8array',compression:'DEFLATE'});out.changed=done;return out}
+/*EXPORT-END*/
+/*TOUCH-START*/
+// Finger dragging for phones and tablets: press and hold a class for a moment, then drag it. A quick tap or a scroll does nothing.
+// Pure controller (the page connects the real touch events), so the timing rules can be tested.
+function createTouchDrag(d){
+ const HOLD=350,SLOP=10,EDGE=70,STEP=14;
+ let state='idle',timer=null,src=null,start=null,hover=null;
+ const stop=()=>{if(timer!=null){d.clearTimer(timer);timer=null}};
+ const reset=()=>{stop();state='idle';src=null;start=null;hover=null};
+ return{
+  get active(){return state==='drag'},
+  start(x,y,cell){
+   if(!d.enabled()||!cell)return false;
+   reset();state='wait';src=cell;start={x,y};
+   timer=d.setTimer(()=>{timer=null;if(state==='wait'&&d.enabled()){state='drag';d.onPick(src)}else if(state==='wait')reset()},HOLD);
+   return true},
+  move(x,y){
+   if(state==='wait'){if(Math.hypot(x-start.x,y-start.y)>SLOP)reset();return false}
+   if(state!=='drag')return false;
+   const c=d.cellAt(x,y);if(c!==hover){hover=c;d.onHover(c)}
+   if(y<EDGE)d.scrollBy(-STEP);else if(y>d.vh()-EDGE)d.scrollBy(STEP);
+   return true},
+  end(x,y){
+   if(state!=='drag'){reset();return false}
+   const s=src,dst=d.cellAt(x,y);reset();d.onHover(null);
+   if(dst&&dst!==s)d.onDrop(s,dst);else d.onCancel();
+   return true},
+  cancel(){const was=state==='drag';reset();if(was){d.onHover(null);d.onCancel()}}}}
+/*TOUCH-END*/
+/*PASSWORD-START*/
+// A signed-in person changes their OWN password. The current password is asked again, so a borrowed screen cannot change it.
+function checkPasswordChange(v){
+ const e=[],cur=String(v.current==null?'':v.current),nw=String(v.next==null?'':v.next),again=String(v.again==null?'':v.again);
+ if(!cur)e.push('Enter your current password.');
+ if(nw.length<8)e.push('The new password needs at least 8 characters.');else if(nw.length>72)e.push('The new password can have at most 72 characters.');
+ else if(nw===cur)e.push('The new password must be different from the current one.');
+ if(nw&&again!==nw)e.push('The two new passwords are not the same.');
+ return e}
+async function changeOwnPassword(sb,email,v){
+ const e=checkPasswordChange(v);if(e.length)return{error:e.join(' ')};
+ const re=await sb.auth.signInWithPassword({email,password:v.current});
+ if(re.error)return{error:'The current password is not correct.'};
+ const up=await sb.auth.updateUser({password:v.next});
+ return up.error?{error:up.error.message}:{ok:true}}
+/*PASSWORD-END*/
+/*AUDIT-START*/
+// History: who did what. Pure helpers (tested). A password or key is never written, whatever the caller passes.
+const SECRET_KEY=/pass(word)?|secret|token|api.?key/i;
+function scrubDetails(o,depth){if(o==null||typeof o!=='object')return o;if(Array.isArray(o))return o.map(x=>scrubDetails(x,depth+1));
+ const r={};Object.keys(o).forEach(k=>{if(!SECRET_KEY.test(k))r[k]=depth<4?scrubDetails(o[k],depth+1):o[k]});return r}
+function auditRow(me,action,target,details){
+ let d=scrubDetails(details||{},0);const j=JSON.stringify(d);if(j.length>8000)d={truncated:true,preview:j.slice(0,2000)};
+ return{actor_id:me.id,actor_name:String(me.name||'').slice(0,80),action:String(action).slice(0,60),target:target==null?null:String(target).slice(0,200),details:d}}
+// what a drag did, in words (called BEFORE the move is applied)
+function describeMove(S,mv){
+ const f=mv.from||{},t=mv.to||{},slot=x=>x.day+' '+x.time,nm=P=>P[0]+(P.length>1?' ('+P.slice(1).join(' ')+')':'');
+ if(mv.kind==='student'){
+  const L=S.layout[mv.g],A=L&&cellAt(L.rows,f.day,f.time),B=L&&cellAt(L.rows,t.day,t.time),a=A&&isClass(A)?classLines(A.cell.v):[],b=B&&isClass(B)?classLines(B.cell.v):null;
+  return 'Class '+mv.g+': '+(a.length?nm(a):'(empty)')+' moved from '+slot(f)+' to '+slot(t)+(b?', swapped with '+nm(b):'')}
+ const B1=S.blocks[mv.bi],bj=mv.toBi==null?mv.bi:mv.toBi,B2=S.blocks[bj],A=B1&&cellAt(B1.rows,f.day,f.time),P=classLines((A&&blocksOf(A.cell.v)[mv.k||0])||'');
+ return (B1?B1.display:'?')+': '+(P[0]||'class')+(P[1]?' ('+P[1]+')':'')+' moved from '+slot(f)+' to '+(bj!==mv.bi&&B2?B2.display+' at ':'')+slot(t)}
+// which moves are new since the last save (and how many saved ones were undone)
+function newMovesSince(saved,edits){
+ let k=0;while(k<saved.length&&k<edits.length&&JSON.stringify(saved[k])===JSON.stringify(edits[k]))k++;
+ return{added:edits.slice(k).map(m=>({note:m.note||'',by:m.by||'',at:m.at||''})),removed:saved.length-k}}
+function summarizeAudit(r){
+ const d=r.details||{},t=r.target||'';
+ switch(r.action){
+ case 'schedule.save':{const add=d.added||[],head='Saved '+(d.total!=null?d.total+' arrangement change'+(d.total===1?'':'s'):'arrangement changes')+' of '+t+(d.campus?' ('+d.campus+(d.semester?', '+d.semester:'')+')':'')+(add.length?', '+add.length+' new':'')+(d.removed?', '+d.removed+' undone':'')+'.';
+  const lines=add.slice(0,10).map(m=>'\u2022 '+(m.note||'a move')+(m.by?' (by '+m.by+')':''));if(add.length>10)lines.push('\u2022 and '+(add.length-10)+' more');return[head].concat(lines)}
+ case 'workbook.save':return['Saved the workbook '+t+(d.campus?' for '+d.campus:'')+(d.semester?', '+d.semester:'')+'.'];
+ case 'workbook.delete':return['Deleted the saved workbook'+(d.count>1?'s':'')+' '+t+'.'];
+ case 'workbook.export':return['Downloaded the arranged workbook of '+t+(d.cells!=null?' ('+d.cells+' cells changed)':'')+'.'];
+ case 'semester.create':return['Created the semester '+t+'.'];
+ case 'campus.add':return['Added the campus '+t+'.'];
+ case 'campus.remove':return['Removed the campus '+t+'.'];
+ case 'password.change':return['Changed their own password.'];
+ case 'user.create':return['Created the user '+t+(d.role?' ('+d.role+')':'')+'.'];
+ case 'user.role':return[t+' is now a '+d.role+'.'];
+ case 'user.reset_password':return['Reset the password of '+t+'.'];
+ case 'user.disable':return['Disabled the account of '+t+'.'];
+ case 'user.enable':return['Enabled the account of '+t+'.'];
+ case 'user.delete':return['Deleted the user '+t+'.'];
+ default:return[String(r.action)+(t?': '+t:'')]}}
+const confirmDelete=(typed,username)=>!!username&&String(typed==null?'':typed).trim().toLowerCase()===String(username).trim().toLowerCase();
+/*AUDIT-END*/
 /*CAMPUS-START*/
 // The campus list is kept in the database and edited by admins. These helpers are pure so they can be tested.
 const CAMPUS_RE=/^[A-Z0-9][A-Z0-9 _-]{0,19}$/;
@@ -824,6 +998,9 @@ function makePassword(len,rnd){
 /*ADMIN-END*/
 const cryptoRnd=n=>{const a=new Uint32Array(1),lim=Math.floor(4294967296/n)*n;do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n};
 
+async function audit(action,target,details){if(!ME||!sb)return;try{await sb.from('audit_log').insert(auditRow(ME,action,target,details))}catch(e){}}
+const semName=()=>(SEMS.find(x=>x.id===CUR)||{}).name||'';
+
 // ---- Administrative tab (admins only) ----
 const canAdmin=()=>!!ME&&ME.role==='admin';
 let USERS=[];
@@ -850,7 +1027,20 @@ function renderUsers(){
   return`<tr><td><b>${esc(u.username)}</b>${me?' <span class="mut">(you)</span>':''}</td><td>${esc(u.full_name)}</td>`+
   `<td><select data-role="${esc(u.id)}"${me?' disabled title="You cannot change your own role"':''}>${ROLE_LIST.map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('')}</select></td>`+
   `<td>${esc(fmtDate(u.created_at))}</td><td>${esc(u.last_sign_in_at?fmtDate(u.last_sign_in_at):'never')}</td><td>${u.disabled?pill('red','Disabled'):pill('grn','Active')}</td>`+
-  `<td class="n"><button class="btn ghost" data-pw="${esc(u.id)}">Reset password</button>${me?'':` <button class="btn ghost danger" data-dis="${esc(u.id)}" data-to="${u.disabled?0:1}">${u.disabled?'Enable':'Disable'}</button>`}</td></tr>`}).join('')+'</table>'}
+  `<td class="n"><button class="btn ghost" data-pw="${esc(u.id)}">Reset password</button>${me?'':` <button class="btn ghost danger" data-dis="${esc(u.id)}" data-to="${u.disabled?0:1}">${u.disabled?'Enable':'Disable'}</button> <button class="btn ghost danger" data-del="${esc(u.id)}">Delete</button>`}</td></tr>`}).join('')+'</table>'}
+let HIST_ROWS=[];
+async function loadHistory(){
+ if(!canAdmin())return;
+ $('adHist').innerHTML='<p class="mut">Loading the history…</p>';
+ const r=await sb.from('audit_log').select('at,actor_name,action,target,details').order('at',{ascending:false}).limit(300);
+ if(r.error){$('adHist').innerHTML='<p class="mut">The history is not set up yet. Run add_history_and_user_deletion.sql in Supabase (README step 13). '+esc(r.error.message)+'</p>';return}
+ HIST_ROWS=r.data||[];renderHistory()}
+function renderHistory(){
+ const f=($('hiF').value||'').split('|').filter(Boolean),rows=HIST_ROWS.filter(x=>!f.length||f.some(p=>String(x.action).startsWith(p)));
+ if(!rows.length){$('adHist').innerHTML='<p class="mut">Nothing in the history yet.</p>';return}
+ $('adHist').innerHTML='<table class="hist"><tr><th>When</th><th>Who</th><th>What</th></tr>'+rows.map(x=>`<tr><td class="when">${esc(new Date(x.at).toLocaleString())}</td><td><b>${esc(x.actor_name)}</b></td><td>${summarizeAudit(x).map(esc).join('<br>')}</td></tr>`).join('')+'</table>'}
+$('hiF').onchange=()=>{if(canAdmin())renderHistory()};
+$('hiRef').onclick=()=>{if(canAdmin())loadHistory()};
 $('nuGen').onclick=()=>{if(!canAdmin())return;$('nuPass').value=makePassword(12,cryptoRnd)};
 $('nuMake').onclick=async()=>{
  if(!canAdmin())return;
@@ -869,11 +1059,16 @@ $('adUsers').addEventListener('change',async e=>{
  catch(err){sel.value=u.role;setAdMsg(esc(err.message),true)}});
 $('adUsers').addEventListener('click',async e=>{
  if(!canAdmin())return;
- const pw=e.target.closest&&e.target.closest('button[data-pw]'),dis=e.target.closest&&e.target.closest('button[data-dis]');
+ const pw=e.target.closest&&e.target.closest('button[data-pw]'),dis=e.target.closest&&e.target.closest('button[data-dis]'),del=e.target.closest&&e.target.closest('button[data-del]');
  if(pw){const u=USERS.find(x=>x.id===pw.dataset.pw);if(!u)return;
   const typed=prompt('New password for '+u.username+' (at least 8 characters).\nLeave empty to make one for you.');if(typed===null)return;
   const np=typed.trim()||makePassword(12,cryptoRnd);
   try{await adminCall({action:'reset_password',id:u.id,password:np});setAdMsg(`New password for <b>${esc(u.username)}</b>: <b>${esc(np)}</b>.<br>Give it to the person now. It cannot be shown again.`)}
+  catch(err){setAdMsg(esc(err.message),true)}}
+ if(del){const u=USERS.find(x=>x.id===del.dataset.del);if(!u||u.id===ME.id)return;
+  const typed=prompt('This permanently deletes the user '+u.username+'.\nTheir saved work stays, but will show no uploader. The history keeps their name.\nIf they only need to be blocked for a while, use Disable instead.\n\nType the username to confirm:');if(typed===null)return;
+  if(!confirmDelete(typed,u.username)){setAdMsg('The name did not match, so nothing was deleted.',true);return}
+  try{await adminCall({action:'delete_user',id:u.id});await loadUsers();setAdMsg(`The user <b>${esc(u.username)}</b> was deleted.`);loadHistory()}
   catch(err){setAdMsg(esc(err.message),true)}}
  if(dis){const u=USERS.find(x=>x.id===dis.dataset.dis);if(!u)return;const off=dis.dataset.to==='1';
   if(off&&!confirm('Disable '+u.username+'? They will not be able to sign in until you enable the account again.'))return;
@@ -900,14 +1095,39 @@ $('ncAdd').onclick=async()=>{
  if(!CAMP_DB){setAdMsg('Run add_campuses.sql in Supabase first (README step 12), then reload this page and try again.',true);return}
  const r=await addCampusRow(sb,c.name,CAMP_ROWS.reduce((m,x)=>Math.max(m,x.sort_order||0),0)+1,ME.id);
  if(r.error){setAdMsg(esc(r.error),true);return}
- $('ncName').value='';await loadCampuses();setAdMsg(`Campus <b>${esc(c.name)}</b> added. It is now in the Campus box.`)};
+ audit('campus.add',c.name);$('ncName').value='';await loadCampuses();setAdMsg(`Campus <b>${esc(c.name)}</b> added. It is now in the Campus box.`)};
 $('campList').addEventListener('click',async e=>{
  const b=e.target.closest&&e.target.closest('button[data-rmc]');if(!b||!canAdmin())return;
  const name=b.dataset.rmc;if(!confirm('Remove campus '+name+' from the list?'))return;
  const r=await removeCampusRow(sb,name,CAMPUSES);
  if(r.error){setAdMsg(esc(r.error),true);return}
- const cur=$('campSel').value;await loadCampuses();if($('campSel').value!==cur&&CUR){OPENED=null;loadHist(true)}
+ audit('campus.remove',name);const cur=$('campSel').value;await loadCampuses();if($('campSel').value!==cur&&CUR){OPENED=null;loadHist(true)}
  setAdMsg(`Campus <b>${esc(name)}</b> removed from the list.`)});
+
+$('expWb').onclick=async()=>{
+ if(!canEdit()||!S||!CURBUF)return;
+ const b=$('expWb');b.disabled=true;
+ try{const out=await exportArranged(S,CURBUF.buf,{JSZip,DOMParser,XMLSerializer});
+  const name=(CURBUF.name||'workbook.xlsx').replace(/\.xlsx?$/i,'')+'_ARRANGED.xlsx';
+  const url=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  audit('workbook.export',name,{cells:out.changed});$('msg').textContent+=' Arranged workbook downloaded ('+out.changed+' cells changed).'}
+ catch(err){alert('Could not build the arranged workbook: '+err.message)}
+ finally{b.disabled=false}};
+
+// ---- change my own password ----
+function setPw(text,isErr){const m=$('pwMsg');m.textContent=text;m.style.color=isErr?'#b42318':''}
+function openPw(){['pwCur','pwNew','pwNew2'].forEach(i=>{$(i).value=''});setPw('Enter your current password, then a new one.',false);$('pwBox').classList.remove('hide');$('pwCur').focus&&$('pwCur').focus()}
+$('pwCancel').onclick=()=>{['pwCur','pwNew','pwNew2'].forEach(i=>{$(i).value=''});$('pwBox').classList.add('hide')};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('pwBox').classList.contains('hide'))$('pwCancel').onclick()});
+$('pwSave').onclick=async()=>{
+ if(!ME)return;
+ const v={current:$('pwCur').value,next:$('pwNew').value,again:$('pwNew2').value},b=$('pwSave');b.disabled=true;
+ try{const r=await changeOwnPassword(sb,ME.email,v);
+  if(r.error){setPw(r.error,true);return}
+  ['pwCur','pwNew','pwNew2'].forEach(i=>{$(i).value=''});audit('password.change',ME.name);setPw('Your password was changed. Use the new one the next time you sign in.',false)}
+ catch(err){setPw(err.message,true)}
+ finally{b.disabled=false}};
 $('expBtn').onclick=()=>{
  if(!S||!S.rep){alert('Open a workbook first.');return}
  const sem=SEMS.find(x=>x.id===CUR);
