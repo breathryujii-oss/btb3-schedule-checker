@@ -201,8 +201,8 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 </div>
 <div class="adbox"><h3 style="margin:0">What each role can do</h3>
 <p style="margin:0"><b>Viewer</b>: opens the saved workbook of a semester and campus and sees every tab. Cannot change anything.</p>
-<p style="margin:0"><b>Registrar</b>: also chooses files, saves them to a semester, adds semesters and sees the saved list.</p>
-<p style="margin:0"><b>Admin</b>: also arranges the schedule by drag and drop, deletes saved workbooks and manages users here.</p>
+<p style="margin:0"><b>Registrar</b>: also chooses files, saves them to a semester, adds semesters, sees the saved list and can delete saved workbooks.</p>
+<p style="margin:0"><b>Admin</b>: everything a registrar can do, plus arranging the schedule by drag and drop, and managing users, campuses and the history here.</p>
 <p class="mut" style="margin:0;font-size:13px">The person signs in with the username and password you give them. Accounts can be disabled but not deleted, so saved work stays linked to a name.</p>
 </div></div>
 <div class="adbox" style="margin-top:20px"><h3 style="margin:0">Campuses</h3>
@@ -701,8 +701,8 @@ $('semNew').onclick=async()=>{const y=(prompt('Academic year, for example 2025-2
  const {error}=await sb.from('semesters').insert({academic_year:y,number:n,name:`Semester ${n}, ${y}`,created_by:ME.id});
  if(error)alert(error.message);else{audit('semester.create','Semester '+n+', '+y);loadSems()}};
 /*DELETE-START*/
-// Deleting saved workbooks. Only admins see these buttons (the database also enforces it).
-const canDel=()=>!!ME&&ME.role==='admin';
+// Deleting saved workbooks. Admins and registrars see these buttons; viewers never do (the database enforces it too).
+const canDel=()=>!!ME&&(ME.role==='admin'||ME.role==='registrar');
 async function deleteUploads(items){
  if(!items||!items.length)return true;
  const r=await sb.storage.from('workbooks').remove(items.map(u=>u.storage_path));
@@ -713,13 +713,13 @@ async function deleteUploads(items){
  await loadHist(true);return true}
 async function delOne(u){
  if(!u||!canDel())return;
- if(!confirm('Delete "'+u.file_name+'" saved on '+new Date(u.uploaded_at).toLocaleString()+'?'+(u.is_active?' This is the ACTIVE workbook, so this campus will have no active workbook.':'')+' This cannot be undone.'))return;
+ if(!confirm('Delete "'+u.file_name+'" saved on '+new Date(u.uploaded_at).toLocaleString()+'?'+(u.is_active?' This is the ACTIVE workbook, so this campus will have no active workbook.':'')+' Any arrangement changes saved for it are deleted too. This cannot be undone.'))return;
  if(OPENED===u.id)OPENED=null;
  await deleteUploads([u])}
 async function delOlder(list){
  if(!canDel())return;
  const old=(list||[]).filter(x=>!x.is_active);if(!old.length)return;
- if(!confirm('Delete '+old.length+' older saved version'+(old.length>1?'s':'')+' for this campus and semester? The active workbook stays. This cannot be undone.'))return;
+ if(!confirm('Delete '+old.length+' older saved version'+(old.length>1?'s':'')+' for this campus and semester? The active workbook stays. Arrangement changes saved for the older versions are deleted too. This cannot be undone.'))return;
  await deleteUploads(old)}
 /*DELETE-END*/
 /*HIST-START*/
