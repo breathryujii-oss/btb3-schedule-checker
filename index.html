@@ -186,7 +186,7 @@ details{margin-top:4px}summary{cursor:pointer;color:var(--acc);font-size:13px}
 <div class="stats" id="scStats"></div><div id="scConf"></div><div id="scGrids"></div><h3>Check results</h3><div class="wrap" id="scOut"><p class="mut">Upload the semester workbook above to begin.</p></div>
 </section>
 <section id="hr" class="panel hide"><h2>Homeroom</h2>
-<p class="lede">Homeroom periods are taken out of the teacher schedules and matched with the homeroom class in the TIMESHEET. Each class should have one homeroom teacher. Homeroom periods overlap class lessons by design, and they are not counted in the Timesheet hours.</p>
+<p class="lede">Homeroom teachers are taken <b>only from the "Home room" column of the TIMESHEET</b>. A teacher with two classes is written like <b>6A/6B</b>. The teacher schedules are not used to decide who is a homeroom teacher, because they also hold homeroom periods of other campuses; they only supply the periods shown here. Homeroom periods overlap class lessons by design and are not counted in the Timesheet hours.</p>
 <div class="bar"><label>Class <select id="hrG"></select></label><label><input type="checkbox" id="hrOnly"> Issues only</label></div>
 <div class="stats" id="hrStats"></div><div class="wrap" id="hrOut"><p class="mut">Upload the semester workbook above to begin.</p></div></section>
 <section id="ad" class="panel hide"><h2>Administrative</h2>
@@ -377,37 +377,21 @@ const KIND={Match:'ok',Mismatch:'yel','Slot differs':'org','No schedule':'org','
 const stat=(l,v)=>`<div class="stat ${KIND[l]||''}"><b>${v}</b>${l}</div>`;
 
 function renderHR(){
- const ck=c=>{const m=c.match(/^(\d+)(.*)$/);return m?m[1].padStart(3,'0')+m[2]:'999'+c};
- const labels={};Object.keys(S.layout).forEach(g=>labels[code(g)]=g);
- const tsBy={};S.ts.forEach(t=>{if(!tsBy[t.name])tsBy[t.name]=t});
- const recs={};
- S.blocks.forEach(b=>b.entries.forEach(e=>{if(!/^homeroom/i.test(clean(e.subject)))return;const c=code(e.grade),k=b.name+'|'+c;
-  (recs[k]=recs[k]||{n:b.name,disp:b.display,c,sub:b.subject,slots:[]}).slots.push(e)}));
- const byC={};Object.values(recs).forEach(r=>(byC[r.c]=byC[r.c]||[]).push(r));
- const used=S.blocks.some(b=>b.entries.some(e=>/^homeroom/i.test(clean(e.subject))))||S.ts.some(t=>t.hr);
+ const used=S.ts.some(t=>splitHomeroom(t.hr).length>0);
  const hb=document.querySelector('#tabs [data-t="hr"]');if(hb)hb.style.opacity=used?'':'.55';
  if(!used){S.kpi=S.kpi||{};S.kpi.hr=null;S.rep=S.rep||{};S.rep.hr=null;$('hrStats').innerHTML='';$('hrG').innerHTML='';
-  $('hrOut').innerHTML='<p class="okn"><b>No homeroom at this campus.</b> This workbook has no homeroom periods and no homeroom classes in the Timesheet, so there is nothing to check here.</p>';renderOV();return}
- const SEV={ok:0,org:1,yel:2,red:3};
- const rows=[];
- Object.values(recs).forEach(r=>{const t=tsBy[r.n],iss=[];let sev='ok';
-  const up=(c,m)=>{iss.push(m);if(SEV[c]>SEV[sev])sev=c};
-  if(!t||!t.hr)up('org','Not listed in the Timesheet');else if(code(t.hr)!==r.c)up('yel',`Timesheet says ${t.hr}`);
-  if(byC[r.c].length>1)up('yel','Class has two homeroom teachers');
-  rows.push({c:r.c,teacher:r.disp,sub:r.sub,phone:t?t.phone:'',ts:t?t.hr:'',slots:r.slots,sev,st:iss.length?iss.join('; '):'OK'})});
- Object.keys(labels).forEach(c=>{if(!byC[c])rows.push({c,teacher:'No homeroom teacher',sub:'',phone:'',ts:'',slots:[],sev:'red',st:'No homeroom teacher found in the teacher schedules'})});
- S.ts.forEach(t=>{if(t.hr&&!recs[t.name+'|'+code(t.hr)])rows.push({c:code(t.hr),teacher:t.display,sub:t.subject,phone:t.phone,ts:t.hr,slots:[],sev:'org',st:'Timesheet lists this class, but the teacher schedule has no homeroom periods'})});
- rows.sort((a,b)=>ck(a.c)<ck(b.c)?-1:ck(a.c)>ck(b.c)?1:0);
- S.rep=S.rep||{};S.rep.hr=rows.map(r=>({cls:labels[r.c]||r.c,teacher:r.teacher,subject:r.sub,phone:r.phone,tsClass:r.ts,periods:r.slots.map(e=>e.day+' '+e.time).join(', '),status:r.st}));
+  $('hrOut').innerHTML='<p class="okn"><b>No homeroom at this campus.</b> The "Home room" column of the TIMESHEET is empty, so there is nothing to check here.</p>';renderOV();return}
+ const rows=homeroomRows(S);
+ S.rep=S.rep||{};S.rep.hr=rows.map(r=>({cls:r.label,teacher:r.teacher,subject:r.sub,phone:r.phone,tsClass:r.raw,periods:r.slots.map(e=>e.day+' '+e.time).join(', '),status:r.st}));
  const cls=[...new Set(rows.map(r=>r.c))],cur=$('hrG').value;
  $('hrG').innerHTML='<option value="">All classes</option>'+cls.map(c=>`<option>${esc(c)}</option>`).join('');$('hrG').value=cls.includes(cur)?cur:'';
- const ok=rows.filter(r=>r.sev==='ok').length,no=rows.filter(r=>r.teacher==='No homeroom teacher').length;
+ const ok=rows.filter(r=>r.sev==='ok').length,no=rows.filter(r=>!r.name).length;
  S.kpi=S.kpi||{};S.kpi.hr={ok,total:rows.length};
  $('hrStats').innerHTML=stat('Classes',cls.length)+stat('OK',ok)+stat('Needs attention',rows.length-ok-no)+stat('No homeroom',no);
  const g=$('hrG').value,list=rows.filter(r=>(!g||r.c===g)&&(!$('hrOnly').checked||r.sev!=='ok'));
  const SC={ok:'grn',org:'org',yel:'yel',red:'red'};
- $('hrOut').innerHTML=list.length?`<table><tr><th>Class</th><th>Homeroom teacher</th><th>Subject</th><th>Phone</th><th>Timesheet class</th><th>Homeroom periods</th><th>Status</th></tr>`+
-  list.map(r=>`<tr class="${r.sev==='ok'?'':r.sev}"><td><b>${esc(labels[r.c]||r.c)}</b></td><td>${esc(r.teacher)}</td><td>${esc(r.sub)}</td><td>${esc(r.phone)}</td><td>${esc(r.ts)}</td><td>${r.slots.map(e=>`<span class="chip">${e.day} ${esc(e.time)}</span>`).join('')}</td><td>${pill(SC[r.sev],r.st)}</td></tr>`).join('')+'</table>'
+ $('hrOut').innerHTML=list.length?`<table><tr><th>Class</th><th>Homeroom teacher</th><th>Subject</th><th>Phone</th><th>TIMESHEET says</th><th>Homeroom periods in the teacher schedule</th><th>Status</th></tr>`+
+  list.map(r=>`<tr class="${r.sev==='ok'?'':r.sev}"><td><b>${esc(r.label)}</b></td><td>${esc(r.teacher)}</td><td>${esc(r.sub)}</td><td>${esc(r.phone)}</td><td>${esc(r.raw)}</td><td>${r.slots.map(e=>`<span class="chip">${e.day} ${esc(e.time)}</span>`).join('')}</td><td>${pill(SC[r.sev],r.st)}</td></tr>`).join('')+'</table>'
   :'<p class="mut">No homeroom issues found.</p>';
  renderOV()}
 
@@ -952,6 +936,30 @@ function summarizeAudit(r){
  default:return[String(r.action)+(t?': '+t:'')]}}
 const confirmDelete=(typed,username)=>!!username&&String(typed==null?'':typed).trim().toLowerCase()===String(username).trim().toLowerCase();
 /*AUDIT-END*/
+/*HOMEROOM-START*/
+// Homeroom teachers come ONLY from the "Home room" column of the TIMESHEET. A teacher with two classes is written like 6A/6B.
+// The teacher schedules are NOT used to decide who is a homeroom teacher: they also hold homeroom periods of other campuses.
+const HR_NONE=/^(n\/?a|none|no|nil|0+|-+|\u2014|\u2013|x)$/i;
+function splitHomeroom(raw){
+ const v=clean(raw);if(!v||HR_NONE.test(v))return[];
+ const seen=new Set(),out=[];
+ v.split(/\s*(?:[\/,;&+]|\band\b)\s*/i).map(clean).filter(Boolean).forEach(x=>{const k=code(x);if(k&&!seen.has(k)){seen.add(k);out.push(x)}});
+ return out}
+const classOrder=c=>{const m=String(c).match(/^(\d+)(.*)$/);return m?m[1].padStart(3,'0')+m[2]:'999'+c};
+// one row per (teacher, class) written in the TIMESHEET, plus a red row for every class of this campus that has nobody
+function homeroomRows(S){
+ if(!S.ts.some(t=>splitHomeroom(t.hr).length))return[];
+ const labels={};Object.keys(S.layout).forEach(g=>{const k=code(g);if(!labels[k])labels[k]=g.replace(/\s*#\d+$/,'')});
+ const rows=[],byC={},SEV={ok:0,org:1,yel:2,red:3};
+ S.ts.forEach(t=>{splitHomeroom(t.hr).forEach(x=>{const c=code(x),slots=[];
+  S.blocks.forEach(b=>{if(b.name!==t.name)return;b.entries.forEach(e=>{if(/^homeroom/i.test(clean(e.subject))&&code(e.grade)===c&&mineCampus(S,e.campus))slots.push({day:e.day,time:e.time})})});
+  const r={c,label:labels[c]||x,teacher:t.display,name:t.name,sub:t.subject,phone:t.phone,raw:t.hr,slots,sev:'ok',st:'OK'};rows.push(r);(byC[c]=byC[c]||[]).push(r)})});
+ const up=(r,sev,m)=>{r.st=r.st==='OK'?m:r.st+'; '+m;if(SEV[sev]>SEV[r.sev])r.sev=sev};
+ Object.values(byC).forEach(list=>{if(list.length>1){const names=list.map(r=>r.teacher).join(' and ');list.forEach(r=>up(r,'yel','Two homeroom teachers: '+names))}});
+ if(Object.keys(labels).length)rows.forEach(r=>{if(!labels[r.c]&&r.st==='OK')r.st="Class of another campus (not in this campus's class schedule)"});
+ Object.keys(labels).forEach(c=>{if(!byC[c])rows.push({c,label:labels[c],teacher:'No homeroom teacher',name:'',sub:'',phone:'',raw:'',slots:[],sev:'red',st:'No homeroom teacher listed in the TIMESHEET'})});
+ return rows.sort((a,b)=>classOrder(a.c)<classOrder(b.c)?-1:classOrder(a.c)>classOrder(b.c)?1:0)}
+/*HOMEROOM-END*/
 /*CAMPUS-START*/
 // The campus list is kept in the database and edited by admins. These helpers are pure so they can be tested.
 const CAMPUS_RE=/^[A-Z0-9][A-Z0-9 _-]{0,19}$/;
