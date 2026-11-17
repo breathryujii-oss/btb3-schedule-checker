@@ -443,20 +443,21 @@ function renderSC(){
  const T=[];S.blocks.forEach(b=>b.entries.forEach(e=>{const g=code(e.grade);
   if(LAB[g]&&!/^homeroom/i.test(clean(e.subject))&&(!e.campus||!own||clean(e.campus).toUpperCase().indexOf(own)>=0))T.push({n:b.name,s:nSub(e.subject),g,day:e.day,time:e.time,disp:b.display,sub:e.subject,gr:e.grade,ref:e.ref})}));
  const k3=e=>e.n+'|'+e.s+'|'+e.g,k5=e=>k3(e)+'|'+e.day+'|'+e.time;
- const T3=new Set(T.map(k3)),T5=new Set(T.map(k5)),names=new Set(S.blocks.map(b=>b.name));
+ const byK=a=>{const m={};a.forEach(e=>(m[k3(e)]=m[k3(e)]||[]).push(e));return m},T3m=byK(T),names=new Set(S.blocks.map(b=>b.name));
  const St=S.stud.map(x=>({n:nName(x.teacher),s:nSub(x.subject),g:code(x.grade),day:x.day,time:x.time,raw:x}));
- const S5=new Set(St.map(k5));
+ const S3m=byK(St),hasMatch=(list,e)=>!!list&&list.some(x=>x.day===e.day&&slotsOverlap(x.time,e.time));
  const C={};S.blocks.forEach(b=>{(C[b.name]=C[b.name]||new Set());b.crossed.forEach(k=>C[b.name].add(k))});
- const busy=e=>C[e.n]&&C[e.n].has(e.day+'|'+e.time);
+ const busy=e=>!!C[e.n]&&[...C[e.n]].some(k=>{const i=k.indexOf('|');return k.slice(0,i)===e.day&&slotsOverlap(k.slice(i+1),e.time)});
  let m=0,sd=0,mm=0,to=0,bz=0;const rows=[],CS={};
  St.forEach(e=>{const r=e.raw;let cls='grn',st='Match';
   if(busy(e)){cls='red';st='Teacher is crossed (busy) at this time';bz++}
-  else if(T5.has(k5(e)))m++;
-  else if(T3.has(k3(e))){cls='org';st='Slot differs (teacher has this class at another time)';sd++}
+  else if(hasMatch(T3m[k3(e)],e))m++;
+  else if(T3m[k3(e)]){cls='org';st='Slot differs (teacher has this class at another time)';sd++}
   else{cls='yel';st=names.has(e.n)?'Subject/Grade not in teacher schedule':'Teacher not found';mm++}
   CS[r.grade+'|'+r.day+'|'+r.time]={cls,st,lab:cls==='red'?'Teacher busy':''};
   rows.push({cls,g:r.grade,day:r.day,time:r.time,sub:r.subject,t:r.teacher,st})});
- T.filter(e=>!S5.has(k5(e))).forEach(e=>{to++;rows.push({cls:'red',g:e.gr.replace(/^Grade\s*/i,''),day:e.day,time:e.time,sub:e.sub,t:e.disp,st:'In teacher schedule, missing from student schedule'})});
+
+ T.filter(e=>!hasMatch(S3m[k3(e)],e)).forEach(e=>{to++;rows.push({cls:'red',g:e.gr.replace(/^Grade\s*/i,''),day:e.day,time:e.time,sub:e.sub,t:e.disp,st:'In teacher schedule, missing from student schedule'})});
  const grp=(a,f)=>{const m={};a.forEach(e=>(m[f(e)]=m[f(e)]||[]).push(e));return m};
  const isLow=g=>/^[1-3](?!\d)/.test(nGrade(g));
  const freeOf=(n,low)=>{const bl=S.blocks.filter(b=>b.name===n),used=new Set();
@@ -467,22 +468,24 @@ function renderSC(){
  const fixFor=(n,grades,who)=>{const ls=[...new Set(grades.map(isLow))];
   if(ls.length===1)return`Move one class to a free slot for ${who}: ${freeOf(n,ls[0])}.`;
   return grades.map(g=>`Moving Grade ${clean(g).replace(/^Grade\s*/i,'')}: ${freeOf(n,isLow(g))}.`).join(' ')};
+ const classSlotKeys=v=>{const lab=labelOf(v[0].gr),L=S.layout[lab],keys=new Set();
+  v.forEach(x=>{const hit=L?L.rows.filter(r=>r.t==='row'&&slotsOverlap(r.time,x.time)).map(r=>lab+'|'+x.day+'|'+r.time):[];(hit.length?hit:[lab+'|'+x.day+'|'+x.time]).forEach(k=>keys.add(k))});return[...keys]};
  const cf=[];
- Object.values(grp(St,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{const gs=[...new Set(v.map(x=>code(x.raw.grade)))];
+ overlapGroups(St,e=>e.n+'|'+e.day).forEach(v=>{const gs=[...new Set(v.map(x=>code(x.raw.grade)))];
   if(gs.length>1){const t=v[0].raw.teacher;cf.push({type:'Teacher in two classes',day:v[0].raw.day,time:v[0].raw.time,who:t,
    what:`${t} is scheduled in ${v.map(x=>'Grade '+x.raw.grade+' ('+x.raw.subject+')').join(' and ')} at the same time.`,
    where:v.map(x=>x.raw.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.raw.grade),t),
    cells:v.map(x=>x.raw.grade+'|'+x.day+'|'+x.time),tk:[v[0].n+'|'+v[0].day+'|'+v[0].time]})}});
  const TA=[];S.blocks.forEach(b=>b.entries.forEach(e=>TA.push({n:b.name,disp:b.display,...e})));
- Object.values(grp(TA,e=>e.n+'|'+e.day+'|'+e.time)).forEach(v=>{
+ overlapGroups(TA,e=>e.n+'|'+e.day).forEach(v=>{
   if(v.length>1)cf.push({type:'Teacher double-booked in teacher schedule',day:v[0].day,time:v[0].time,who:v[0].disp,
    what:`${v[0].disp} has ${v.map(x=>x.subject+' '+x.grade+(x.campus?' ('+x.campus.replace(' Campus','')+')':'')).join(' and ')} in the same slot.`,
-   where:v.map(x=>x.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.grade),v[0].disp),cells:[],tk:[v[0].n+'|'+v[0].day+'|'+v[0].time]})});
- Object.values(grp(T,e=>e.g+'|'+e.day+'|'+e.time)).forEach(v=>{const ns=[...new Set(v.map(x=>x.n))];
+   where:v.map(x=>x.ref).join(', '),fix:fixFor(v[0].n,v.map(x=>x.grade),v[0].disp),cells:[],tk:[...new Set(v.map(x=>v[0].n+'|'+x.day+'|'+x.time))]})});
+ overlapGroups(T,e=>e.g+'|'+e.day).forEach(v=>{const ns=[...new Set(v.map(x=>x.n))];
   if(ns.length>1){const gl='Grade '+v[0].gr.replace(/^Grade\s*/i,'');cf.push({type:'Class with two teachers',day:v[0].day,time:v[0].time,who:gl,
    what:`${gl} has ${v.map(x=>x.disp+' ('+x.sub+')').join(' and ')} at the same time.`,
    where:v.map(x=>x.ref).join(', '),fix:`Keep one teacher for this slot. Free slots for ${v[1].disp}: ${freeOf(v[1].n,isLow(v[0].gr))}.`,
-   cells:[labelOf(v[0].gr)+'|'+v[0].day+'|'+v[0].time],tk:v.map(x=>x.n+'|'+x.day+'|'+x.time)})}});
+   cells:classSlotKeys(v),tk:v.map(x=>x.n+'|'+x.day+'|'+x.time)})}});
  Object.entries(S.layout).forEach(([g,L])=>L.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{if(c.x&&clean(c.v)&&!/^break/i.test(clean(c.v))){const P=classLines(c.v);
   cf.push({type:'Class in a crossed-out slot',day:DAYS[d],time:r.time,who:'Grade '+g,what:P[0]+' ('+P.slice(1).join(' ')+') is in a slot that is crossed out (not used) for Grade '+g+'.',where:c.ref||'',fix:'Move the class to a slot that is not crossed out.',cells:[g+'|'+DAYS[d]+'|'+r.time],tk:[]})}})}));
  S.blocks.forEach(b=>b.rows.forEach(r=>{if(r.t!=='row')return;r.cells.forEach((c,d)=>{if(c.x&&clean(c.v)&&!/^break/i.test(clean(c.v))){
@@ -960,6 +963,24 @@ function homeroomRows(S){
  Object.keys(labels).forEach(c=>{if(!byC[c])rows.push({c,label:labels[c],teacher:'No homeroom teacher',name:'',sub:'',phone:'',raw:'',slots:[],sev:'red',st:'No homeroom teacher listed in the TIMESHEET'})});
  return rows.sort((a,b)=>classOrder(a.c)<classOrder(b.c)?-1:classOrder(a.c)>classOrder(b.c)?1:0)}
 /*HOMEROOM-END*/
+/*TIME-START*/
+// Class schedules and teacher schedules may cut the day differently (50-minute periods and 25-minute rows).
+// Two slots count as "the same time" when their time ranges overlap, so a cell 10:00 - 10:25 AM matches the period 10:00 - 10:50 AM.
+function timeRange(label){
+ const m=String(label==null?'':label).match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(!m)return null;
+ const pm=/pm/i.test(m[5]),mins=(h,mi)=>((+h%12)+(pm?12:0))*60+ +mi,e=mins(m[3],m[4]);let st=mins(m[1],m[2]);if(st>e)st-=720;
+ return{s:st,e}}
+function slotsOverlap(a,b){
+ if(a===b)return true;const x=timeRange(a),y=timeRange(b);if(!x||!y)return false;
+ return Math.max(x.s,y.s)<Math.min(x.e,y.e)}
+// groups items that share a key and whose times overlap (chains of overlaps form one group)
+function overlapGroups(list,key){
+ const by={};list.forEach(e=>{(by[key(e)]=by[key(e)]||[]).push(e)});const out=[];
+ Object.values(by).forEach(arr=>{const p=arr.map((_,i)=>i),f=i=>p[i]===i?i:(p[i]=f(p[i]));
+  for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++)if(slotsOverlap(arr[i].time,arr[j].time))p[f(i)]=f(j);
+  const g={};arr.forEach((e,i)=>{(g[f(i)]=g[f(i)]||[]).push(e)});Object.values(g).forEach(c=>out.push(c))});
+ return out}
+/*TIME-END*/
 /*CAMPUS-START*/
 // The campus list is kept in the database and edited by admins. These helpers are pure so they can be tested.
 const CAMPUS_RE=/^[A-Z0-9][A-Z0-9 _-]{0,19}$/;
